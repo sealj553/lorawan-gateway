@@ -9,6 +9,11 @@
  *
  *******************************************************************************/
 
+#include <rapidjson/document.h>
+#include <rapidjson/filereadstream.h>
+
+using namespace rapidjson;
+
 #include <string>
 #include <stdio.h>
 #include <sys/types.h>
@@ -20,6 +25,7 @@
 #include <sys/time.h>
 #include <cstring>
 #include <netdb.h>
+#include <vector>
 
 #include <sys/ioctl.h>
 #include <net/if.h>
@@ -57,6 +63,13 @@ uint32_t cp_up_pkt_fwd;
 
 enum sf_t { SF7=7, SF8, SF9, SF10, SF11, SF12 };
 
+typedef struct server
+{
+    string address;
+    uint16_t port;
+    bool enabled;
+} server_t;
+
 /*******************************************************************************
  *
  * Configure these values!
@@ -84,10 +97,8 @@ static char platform[24]    = "Single Channel Gateway";  /* platform definition 
 static char email[40]       = "";                        /* used for contact email */
 static char description[64] = "";                        /* used for free form description */
 
-// define servers
-#define SERVER1 "croft.thethings.girovito.nl"   // 54.72.145.119
-//#define SERVER2 "192.168.1.10"                  // local
-#define PORT 1700                               // The port on which to send data
+// Servers
+vector<server_t> servers;
 
 // #############################################
 // #############################################
@@ -161,6 +172,10 @@ static char description[64] = "";                        /* used for free form d
 
 #define TX_BUFF_SIZE  2048
 #define STATUS_SIZE	  1024
+
+void loadConfiguration(string filename);
+
+void printConfiguration();
 
 void die(const char *s)
 {
@@ -347,22 +362,19 @@ void solveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_
 
 void sendudp(char *msg, int length) {
 
-//send the update
-#ifdef SERVER1
-    solveHostname(SERVER1, PORT, &si_other);
-    if (sendto(s, (char *)msg, length, 0 , (struct sockaddr *) &si_other, slen)==-1)
+    for (vector<server_t>::iterator it = servers.begin(); it != servers.end(); ++it)
     {
-        die("sendto()");
-    }
-#endif
+        if (it->enabled)
+        {
+            si_other.sin_port = htons(it->port);
 
-#ifdef SERVER2
-    solveHostname(SERVER2, PORT, &si_other);
-    if (sendto(s, (char *)msg, length, 0 , (struct sockaddr *) &si_other, slen)==-1)
-    {
-        die("sendto()");
+            solveHostname(it->address.c_str(), it->port, &si_other);
+            if (sendto(s, (char *)msg, length, 0 , (struct sockaddr *) &si_other, slen)==-1)
+            {
+                die("sendto()");
+            }
+        }
     }
-#endif
 }
 
 void sendstat() {
@@ -577,6 +589,9 @@ int main () {
     wiringPiSPISetup(CHANNEL, 500000);
     //cout << "Init result: " << fd << endl;
 
+    loadConfiguration("global_conf.json");
+    printConfiguration();
+
     SetupLoRa();
 
     if ( (s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
@@ -585,7 +600,6 @@ int main () {
     }
     memset((char *) &si_other, 0, sizeof(si_other));
     si_other.sin_family = AF_INET;
-    si_other.sin_port = htons(PORT);
 
     ifr.ifr_addr.sa_family = AF_INET;
     strncpy(ifr.ifr_name, "eth0", IFNAMSIZ-1);  // can we rely on eth0?
@@ -621,4 +635,108 @@ int main () {
 
     return (0);
 
+}
+
+void loadConfiguration(string configurationFile) {
+    FILE* p_file = fopen(configurationFile.c_str(), "r");
+    char buffer[65536];
+    FileReadStream fs(p_file, buffer, sizeof(buffer));
+
+    Document document;
+    document.ParseStream(fs);
+
+    for (Value::ConstMemberIterator fileIt = document.MemberBegin(); fileIt != document.MemberEnd(); ++fileIt)
+    {
+        string objectType(fileIt->name.GetString());
+        if (objectType.compare("SX127x_conf") == 0)
+        {
+            const Value& sx127x_conf = fileIt->value;
+            if (sx127x_conf.IsObject())
+            {
+                for (Value::ConstMemberIterator confIt = sx127x_conf.MemberBegin(); confIt != sx127x_conf.MemberEnd(); ++confIt)
+                {
+                    string key(confIt->name.GetString());
+                    if (key.compare("freq") == 0)
+                    {
+                        freq = confIt->value.GetUint();
+                    }
+                    else if (key.compare("spread_factor") == 0)
+                    {
+                        sf = (sf_t)confIt->value.GetUint();
+                    }
+                }
+            }
+        }
+        else if (objectType.compare("gateway_conf") == 0)
+        {
+            const Value& gateway_conf = fileIt->value;
+            if (gateway_conf.IsObject())
+            {
+                for (Value::ConstMemberIterator confIt = gateway_conf.MemberBegin(); confIt != gateway_conf.MemberEnd(); ++confIt)
+                {
+                    string memberType(confIt->name.GetString());
+                    if (memberType.compare("servers") == 0)
+                    {
+                        const Value& serverConf = confIt->value;
+                        if (serverConf.IsObject())
+                        {
+                            const Value& serverValue = serverConf;
+                            server_t server;
+                            for (Value::ConstMemberIterator srvIt = serverValue.MemberBegin(); srvIt != serverValue.MemberEnd(); ++srvIt)
+                            {
+                                string key(srvIt->name.GetString());
+                                if (key.compare("address") == 0 && srvIt->value.IsString())
+                                {
+                                    server.address = srvIt->value.GetString();
+                                }
+                                else if (key.compare("port") == 0 && srvIt->value.IsUint())
+                                {
+                                    server.port = srvIt->value.GetUint();
+                                }
+                                else if (key.compare("enabled") == 0 && srvIt->value.IsBool())
+                                {
+                                    server.enabled = srvIt->value.GetBool();
+                                }
+                            }
+                            servers.push_back(server);
+                        }
+                        else if (serverConf.IsArray())
+                        {
+                            for (SizeType i = 0; i < serverConf.Size(); i++)
+                            {
+                                const Value& serverValue = serverConf[i];
+                                server_t server;
+                                for (Value::ConstMemberIterator srvIt = serverValue.MemberBegin(); srvIt != serverValue.MemberEnd(); ++srvIt)
+                                {
+                                    string key(srvIt->name.GetString());
+                                    if (key.compare("address") == 0 && srvIt->value.IsString())
+                                    {
+                                        server.address = srvIt->value.GetString();
+                                    }
+                                    else if (key.compare("port") == 0 && srvIt->value.IsUint())
+                                    {
+                                        server.port = srvIt->value.GetUint();
+                                    }
+                                    else if (key.compare("enabled") == 0 && srvIt->value.IsBool())
+                                    {
+                                        server.enabled = srvIt->value.GetBool();
+                                    }
+                                }
+                                servers.push_back(server);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void printConfiguration() {
+    printf("freq = %u\n", freq);
+    printf("sf = %hhu\n", sf);
+    for (vector<server_t>::iterator it = servers.begin(); it != servers.end(); ++it)
+    {
+        printf("server: .address = %s; .port = %hu; .enable = %d\n", it->address.c_str(), it->port, it->enabled);
+    }
 }
