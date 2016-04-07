@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <sys/time.h>
 #include <cstring>
+#include <netdb.h>
 
 #include <sys/ioctl.h>
 #include <net/if.h>
@@ -84,10 +85,9 @@ static char email[40]       = "";                        /* used for contact ema
 static char description[64] = "";                        /* used for free form description */
 
 // define servers
-// TODO: use host names and dns
-#define SERVER1 "54.72.145.119"    // The Things Network: croft.thethings.girovito.nl
-//#define SERVER2 "192.168.1.10"      // local
-#define PORT 1700                   // The port on which to send data
+#define SERVER1 "croft.thethings.girovito.nl"   // 54.72.145.119
+//#define SERVER2 "192.168.1.10"                  // local
+#define PORT 1700                               // The port on which to send data
 
 // #############################################
 // #############################################
@@ -240,7 +240,7 @@ boolean receivePkt(char *payload)
 
 void SetupLoRa()
 {
-    
+
     digitalWrite(RST, HIGH);
     delay(100);
     digitalWrite(RST, LOW);
@@ -313,11 +313,43 @@ void SetupLoRa()
 
 }
 
+void solveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_sin) {
+
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
+
+    char service[6] = { '\0' };
+    snprintf(service, 6, "%hu", port);
+
+    struct addrinfo* p_result = NULL;
+
+    // Resolve the domain name into a list of addresses
+    int error = getaddrinfo(p_hostname, service, &hints, &p_result);
+    if (error != 0)
+    {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
+        exit(EXIT_FAILURE);
+    }
+
+    // Loop over all returned results
+    for (struct addrinfo* p_rp = p_result; p_rp != NULL; p_rp = p_rp->ai_next)
+    {
+        struct sockaddr_in* p_saddr = (struct sockaddr_in*)p_rp->ai_addr;
+        //printf("%s solved to %s\n", p_hostname, inet_ntoa(p_saddr->sin_addr));
+        p_sin->sin_addr = p_saddr->sin_addr;
+    }
+
+    freeaddrinfo(p_result);
+}
+
 void sendudp(char *msg, int length) {
 
 //send the update
 #ifdef SERVER1
-    inet_aton(SERVER1 , &si_other.sin_addr);
+    solveHostname(SERVER1, PORT, &si_other);
     if (sendto(s, (char *)msg, length, 0 , (struct sockaddr *) &si_other, slen)==-1)
     {
         die("sendto()");
@@ -325,8 +357,8 @@ void sendudp(char *msg, int length) {
 #endif
 
 #ifdef SERVER2
-    inet_aton(SERVER2 , &si_other.sin_addr);
-    if (sendto(s, (char *)msg, length , 0 , (struct sockaddr *) &si_other, slen)==-1)
+    solveHostname(SERVER2, PORT, &si_other);
+    if (sendto(s, (char *)msg, length, 0 , (struct sockaddr *) &si_other, slen)==-1)
     {
         die("sendto()");
     }
@@ -396,7 +428,7 @@ void receivepacket() {
                 // Divide by 4
                 SNR = ( value & 0xFF ) >> 2;
             }
-            
+
             if (sx1272) {
                 rssicorr = 139;
             } else {
@@ -541,7 +573,7 @@ int main () {
     pinMode(dio0, INPUT);
     pinMode(RST, OUTPUT);
 
-    //int fd = 
+    //int fd =
     wiringPiSPISetup(CHANNEL, 500000);
     //cout << "Init result: " << fd << endl;
 
@@ -590,4 +622,3 @@ int main () {
     return (0);
 
 }
-
