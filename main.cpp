@@ -9,50 +9,48 @@
  *
  *******************************************************************************/
 
+#include "base64.h"
+
 #include <rapidjson/document.h>
 #include <rapidjson/filereadstream.h>
-
-using namespace rapidjson;
-
-#include <string>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <string.h>
-#include <iostream>
-#include <cstdlib>
-#include <sys/time.h>
-#include <cstring>
-#include <netdb.h>
-#include <vector>
-
-#include <sys/ioctl.h>
-#include <net/if.h>
-
-using namespace std;
-
-#include "base64.h"
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 
-typedef bool boolean;
-typedef unsigned char byte;
+#include <arpa/inet.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <netdb.h>
+
+#include <cstdlib>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <iostream>
+#include <string>
+#include <vector>
+
+using namespace std;
+
+using namespace rapidjson;
 
 static const int CHANNEL = 0;
 
-byte currentMode = 0x81;
+uint8_t currentMode = 0x81;
 
 char message[256];
 char b64[256];
 
 bool sx1272 = true;
 
-byte receivedbytes;
+uint8_t receivedbytes;
 
 struct sockaddr_in si_other;
-int s, slen=sizeof(si_other);
+int s;
+int slen = sizeof(si_other);
 struct ifreq ifr;
 
 uint32_t cp_nb_rx_rcv;
@@ -61,14 +59,22 @@ uint32_t cp_nb_rx_bad;
 uint32_t cp_nb_rx_nocrc;
 uint32_t cp_up_pkt_fwd;
 
-enum sf_t { SF7=7, SF8, SF9, SF10, SF11, SF12 };
+typedef enum SpreadingFactors
+{
+    SF7 = 7,
+    SF8,
+    SF9,
+    SF10,
+    SF11,
+    SF12
+} SpreadingFactor_t;
 
-typedef struct server
+typedef struct Server
 {
     string address;
     uint16_t port;
     bool enabled;
-} server_t;
+} Server_t;
 
 /*******************************************************************************
  *
@@ -82,15 +88,15 @@ int dio0  = 7;
 int RST   = 0;
 
 // Set spreading factor (SF7 - SF12)
-sf_t sf = SF7;
+SpreadingFactor_t sf = SF7;
 
 // Set center frequency
-uint32_t  freq = 868100000; // in Mhz! (868.1)
+uint32_t freq = 868100000; // in Mhz! (868.1)
 
 // Set location
-float lat=0.0;
-float lon=0.0;
-int   alt=0;
+float lat = 0.0;
+float lon = 0.0;
+int   alt = 0;
 
 /* Informal status fields */
 static char platform[24]    = "Single Channel Gateway";  /* platform definition */
@@ -98,7 +104,7 @@ static char email[40]       = "";                        /* used for contact ema
 static char description[64] = "";                        /* used for free form description */
 
 // Servers
-vector<server_t> servers;
+vector<Server_t> servers;
 
 // #############################################
 // #############################################
@@ -116,14 +122,14 @@ vector<server_t> servers;
 #define REG_MODEM_CONFIG            0x1D
 #define REG_MODEM_CONFIG2           0x1E
 #define REG_MODEM_CONFIG3           0x26
-#define REG_SYMB_TIMEOUT_LSB  		0x1F
-#define REG_PKT_SNR_VALUE			0x19
+#define REG_SYMB_TIMEOUT_LSB        0x1F
+#define REG_PKT_SNR_VALUE           0x19
 #define REG_PAYLOAD_LENGTH          0x22
 #define REG_IRQ_FLAGS_MASK          0x11
-#define REG_MAX_PAYLOAD_LENGTH 		0x23
+#define REG_MAX_PAYLOAD_LENGTH      0x23
 #define REG_HOP_PERIOD              0x24
-#define REG_SYNC_WORD				0x39
-#define REG_VERSION	  				0x42
+#define REG_SYNC_WORD               0x39
+#define REG_VERSION                 0x42
 
 #define SX72_MODE_RX_CONTINUOS      0x85
 #define SX72_MODE_TX                0x83
@@ -136,7 +142,7 @@ vector<server_t> servers;
 #define REG_LNA                     0x0C
 #define LNA_MAX_GAIN                0x23
 #define LNA_OFF_GAIN                0x00
-#define LNA_LOW_GAIN		    	0x20
+#define LNA_LOW_GAIN                0x20
 
 // CONF REG
 #define REG1                        0x0A
@@ -170,62 +176,59 @@ vector<server_t> servers;
 #define PKT_PULL_RESP 3
 #define PKT_PULL_ACK  4
 
-#define TX_BUFF_SIZE  2048
-#define STATUS_SIZE	  1024
+#define TX_BUFF_SIZE    2048
+#define STATUS_SIZE     1024
 
-void loadConfiguration(string filename);
+void LoadConfiguration(string filename);
 
-void printConfiguration();
+void PrintConfiguration();
 
-void die(const char *s)
+void Die(const char *s)
 {
     perror(s);
     exit(1);
 }
 
-void selectreceiver()
+void SelectReceiver()
 {
     digitalWrite(ssPin, LOW);
 }
 
-void unselectreceiver()
+void UnselectReceiver()
 {
     digitalWrite(ssPin, HIGH);
 }
 
-byte readRegister(byte addr)
+uint8_t ReadRegister(uint8_t addr)
 {
-    unsigned char spibuf[2];
-
-    selectreceiver();
+    uint8_t spibuf[2];
     spibuf[0] = addr & 0x7F;
     spibuf[1] = 0x00;
+
+    SelectReceiver();
     wiringPiSPIDataRW(CHANNEL, spibuf, 2);
-    unselectreceiver();
+    UnselectReceiver();
 
     return spibuf[1];
 }
 
-void writeRegister(byte addr, byte value)
+void WriteRegister(uint8_t addr, uint8_t value)
 {
-    unsigned char spibuf[2];
-
+    uint8_t spibuf[2];
     spibuf[0] = addr | 0x80;
     spibuf[1] = value;
-    selectreceiver();
-    wiringPiSPIDataRW(CHANNEL, spibuf, 2);
 
-    unselectreceiver();
+    SelectReceiver();
+    wiringPiSPIDataRW(CHANNEL, spibuf, 2);
+    UnselectReceiver();
 }
 
-
-boolean receivePkt(char *payload)
+bool ReceivePkt(char* payload)
 {
-
     // clear rxDone
-    writeRegister(REG_IRQ_FLAGS, 0x40);
+    WriteRegister(REG_IRQ_FLAGS, 0x40);
 
-    int irqflags = readRegister(REG_IRQ_FLAGS);
+    int irqflags = ReadRegister(REG_IRQ_FLAGS);
 
     cp_nb_rx_rcv++;
 
@@ -233,21 +236,22 @@ boolean receivePkt(char *payload)
     if((irqflags & 0x20) == 0x20)
     {
         printf("CRC error\n");
-        writeRegister(REG_IRQ_FLAGS, 0x20);
+        WriteRegister(REG_IRQ_FLAGS, 0x20);
         return false;
-    } else {
-
+    }
+    else
+    {
         cp_nb_rx_ok++;
 
-        byte currentAddr = readRegister(REG_FIFO_RX_CURRENT_ADDR);
-        byte receivedCount = readRegister(REG_RX_NB_BYTES);
+        uint8_t currentAddr = ReadRegister(REG_FIFO_RX_CURRENT_ADDR);
+        uint8_t receivedCount = ReadRegister(REG_RX_NB_BYTES);
         receivedbytes = receivedCount;
 
-        writeRegister(REG_FIFO_ADDR_PTR, currentAddr);
+        WriteRegister(REG_FIFO_ADDR_PTR, currentAddr);
 
         for(int i = 0; i < receivedCount; i++)
         {
-            payload[i] = (char)readRegister(REG_FIFO);
+            payload[i] = ReadRegister(REG_FIFO);
         }
     }
     return true;
@@ -255,81 +259,97 @@ boolean receivePkt(char *payload)
 
 void SetupLoRa()
 {
-
     digitalWrite(RST, HIGH);
     delay(100);
     digitalWrite(RST, LOW);
     delay(100);
 
-    byte version = readRegister(REG_VERSION);
+    uint8_t version = ReadRegister(REG_VERSION);
 
-    if (version == 0x22) {
+    if (version == 0x22)
+    {
         // sx1272
         printf("SX1272 detected, starting.\n");
         sx1272 = true;
-    } else {
+    }
+    else
+    {
         // sx1276?
         digitalWrite(RST, LOW);
         delay(100);
         digitalWrite(RST, HIGH);
         delay(100);
-        version = readRegister(REG_VERSION);
-        if (version == 0x12) {
+        version = ReadRegister(REG_VERSION);
+        if (version == 0x12)
+        {
             // sx1276
             printf("SX1276 detected, starting.\n");
             sx1272 = false;
-        } else {
+        }
+        else
+        {
             printf("Unrecognized transceiver.\n");
             //printf("Version: 0x%x\n",version);
             exit(1);
         }
     }
 
-    writeRegister(REG_OPMODE, SX72_MODE_SLEEP);
+    WriteRegister(REG_OPMODE, SX72_MODE_SLEEP);
 
     // set frequency
     uint64_t frf = ((uint64_t)freq << 19) / 32000000;
-    writeRegister(REG_FRF_MSB, (uint8_t)(frf>>16) );
-    writeRegister(REG_FRF_MID, (uint8_t)(frf>> 8) );
-    writeRegister(REG_FRF_LSB, (uint8_t)(frf>> 0) );
+    WriteRegister(REG_FRF_MSB, (uint8_t)(frf >> 16) );
+    WriteRegister(REG_FRF_MID, (uint8_t)(frf >> 8) );
+    WriteRegister(REG_FRF_LSB, (uint8_t)(frf >> 0) );
 
-    writeRegister(REG_SYNC_WORD, 0x34); // LoRaWAN public sync word
+    WriteRegister(REG_SYNC_WORD, 0x34); // LoRaWAN public sync word
 
-    if (sx1272) {
-        if (sf == SF11 || sf == SF12) {
-            writeRegister(REG_MODEM_CONFIG,0x0B);
-        } else {
-            writeRegister(REG_MODEM_CONFIG,0x0A);
+    if (sx1272)
+    {
+        if (sf == SF11 || sf == SF12)
+        {
+            WriteRegister(REG_MODEM_CONFIG, 0x0B);
         }
-        writeRegister(REG_MODEM_CONFIG2,(sf<<4) | 0x04);
-    } else {
-        if (sf == SF11 || sf == SF12) {
-            writeRegister(REG_MODEM_CONFIG3,0x0C);
-        } else {
-            writeRegister(REG_MODEM_CONFIG3,0x04);
+        else
+        {
+            WriteRegister(REG_MODEM_CONFIG, 0x0A);
         }
-        writeRegister(REG_MODEM_CONFIG,0x72);
-        writeRegister(REG_MODEM_CONFIG2,(sf<<4) | 0x04);
+        WriteRegister(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
+    }
+    else
+    {
+        if (sf == SF11 || sf == SF12)
+        {
+            WriteRegister(REG_MODEM_CONFIG3, 0x0C);
+        }
+        else
+        {
+            WriteRegister(REG_MODEM_CONFIG3, 0x04);
+        }
+        WriteRegister(REG_MODEM_CONFIG, 0x72);
+        WriteRegister(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
     }
 
-    if (sf == SF10 || sf == SF11 || sf == SF12) {
-        writeRegister(REG_SYMB_TIMEOUT_LSB,0x05);
-    } else {
-        writeRegister(REG_SYMB_TIMEOUT_LSB,0x08);
+    if (sf == SF10 || sf == SF11 || sf == SF12)
+    {
+        WriteRegister(REG_SYMB_TIMEOUT_LSB, 0x05);
     }
-    writeRegister(REG_MAX_PAYLOAD_LENGTH,0x80);
-    writeRegister(REG_PAYLOAD_LENGTH,PAYLOAD_LENGTH);
-    writeRegister(REG_HOP_PERIOD,0xFF);
-    writeRegister(REG_FIFO_ADDR_PTR, readRegister(REG_FIFO_RX_BASE_AD));
+    else
+    {
+        WriteRegister(REG_SYMB_TIMEOUT_LSB, 0x08);
+    }
+    WriteRegister(REG_MAX_PAYLOAD_LENGTH, 0x80);
+    WriteRegister(REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
+    WriteRegister(REG_HOP_PERIOD, 0xFF);
+    WriteRegister(REG_FIFO_ADDR_PTR, ReadRegister(REG_FIFO_RX_BASE_AD));
 
     // Set Continous Receive Mode
-    writeRegister(REG_LNA, LNA_MAX_GAIN);  // max lna gain
-    writeRegister(REG_OPMODE, SX72_MODE_RX_CONTINUOS);
-
+    WriteRegister(REG_LNA, LNA_MAX_GAIN);  // max lna gain
+    WriteRegister(REG_OPMODE, SX72_MODE_RX_CONTINUOS);
 }
 
-void solveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_sin) {
-
+void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_sin)
+{
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
@@ -360,30 +380,29 @@ void solveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_
     freeaddrinfo(p_result);
 }
 
-void sendudp(char *msg, int length) {
-
-    for (vector<server_t>::iterator it = servers.begin(); it != servers.end(); ++it)
+void SendUdp(char *msg, int length)
+{
+    for (vector<Server_t>::iterator it = servers.begin(); it != servers.end(); ++it)
     {
         if (it->enabled)
         {
             si_other.sin_port = htons(it->port);
 
-            solveHostname(it->address.c_str(), it->port, &si_other);
+            SolveHostname(it->address.c_str(), it->port, &si_other);
             if (sendto(s, (char *)msg, length, 0 , (struct sockaddr *) &si_other, slen)==-1)
             {
-                die("sendto()");
+                Die("sendto()");
             }
         }
     }
 }
 
-void sendstat() {
-
+void SendStat()
+{
     static char status_report[STATUS_SIZE]; /* status report as a JSON object */
     char stat_timestamp[24];
-    time_t t;
 
-    int stat_index=0;
+    int stat_index = 0;
 
     /* pre-fill the data buffer with fixed fields */
     status_report[0] = PROTOCOL_VERSION;
@@ -406,7 +425,7 @@ void sendstat() {
     stat_index = 12; /* 12-byte header */
 
     /* get timestamp for statistics */
-    t = time(NULL);
+    time_t t = time(NULL);
     strftime(stat_timestamp, sizeof stat_timestamp, "%F %T %Z", gmtime(&t));
 
     int j = snprintf((char *)(status_report + stat_index), STATUS_SIZE-stat_index, "{\"stat\":{\"time\":\"%s\",\"lati\":%.5f,\"long\":%.5f,\"alti\":%i,\"rxnb\":%u,\"rxok\":%u,\"rxfw\":%u,\"ackr\":%.1f,\"dwnb\":%u,\"txnb\":%u,\"pfrm\":\"%s\",\"mail\":\"%s\",\"desc\":\"%s\"}}", stat_timestamp, lat, lon, (int)alt, cp_nb_rx_rcv, cp_nb_rx_ok, cp_up_pkt_fwd, (float)0, 0, 0,platform,email,description);
@@ -416,23 +435,23 @@ void sendstat() {
     printf("stat update: %s\n", (char *)(status_report+12)); /* DEBUG: display JSON stat */
 
     //send the update
-    sendudp(status_report, stat_index);
-
+    SendUdp(status_report, stat_index);
 }
 
-void receivepacket() {
-
+void Receivepacket()
+{
     long int SNR;
     int rssicorr;
 
     if(digitalRead(dio0) == 1)
     {
-        if(receivePkt(message)) {
-            byte value = readRegister(REG_PKT_SNR_VALUE);
-            if( value & 0x80 ) // The SNR sign bit is 1
+        if(ReceivePkt(message))
+        {
+            uint8_t value = ReadRegister(REG_PKT_SNR_VALUE);
+            if (value & 0x80) // The SNR sign bit is 1
             {
                 // Invert and divide by 4
-                value = ( ( ~value + 1 ) & 0xFF ) >> 2;
+                value = ((~value + 1) & 0xFF) >> 2;
                 SNR = -value;
             }
             else
@@ -441,24 +460,26 @@ void receivepacket() {
                 SNR = ( value & 0xFF ) >> 2;
             }
 
-            if (sx1272) {
+            if (sx1272)
+            {
                 rssicorr = 139;
-            } else {
+            }
+            else
+            {
                 rssicorr = 157;
             }
 
-            printf("Packet RSSI: %d, ",readRegister(0x1A)-rssicorr);
-            printf("RSSI: %d, ",readRegister(0x1B)-rssicorr);
-            printf("SNR: %li, ",SNR);
-            printf("Length: %i",(int)receivedbytes);
+            printf("Packet RSSI: %d, " ,ReadRegister(0x1A) - rssicorr);
+            printf("RSSI: %d, ", ReadRegister(0x1B) - rssicorr);
+            printf("SNR: %li, ", SNR);
+            printf("Length: %i", (int)receivedbytes);
             printf("\n");
 
-            int j;
-            j = bin_to_b64((uint8_t *)message, receivedbytes, (char *)(b64), 341);
+            int j = bin_to_b64((uint8_t *)message, receivedbytes, (char *)b64, 341);
             //fwrite(b64, sizeof(char), j, stdout);
 
             char buff_up[TX_BUFF_SIZE]; /* buffer to compose the upstream packet */
-            int buff_index=0;
+            int buff_index = 0;
 
             /* gateway <-> MAC protocol variables */
             //static uint32_t net_mac_h; /* Most Significant Nibble, network order */
@@ -474,14 +495,14 @@ void receivepacket() {
             //*(uint32_t *)(buff_up + 4) = net_mac_h;
             //*(uint32_t *)(buff_up + 8) = net_mac_l;
 
-            buff_up[4] = (unsigned char)ifr.ifr_hwaddr.sa_data[0];
-            buff_up[5] = (unsigned char)ifr.ifr_hwaddr.sa_data[1];
-            buff_up[6] = (unsigned char)ifr.ifr_hwaddr.sa_data[2];
+            buff_up[4] = (uint8_t)ifr.ifr_hwaddr.sa_data[0];
+            buff_up[5] = (uint8_t)ifr.ifr_hwaddr.sa_data[1];
+            buff_up[6] = (uint8_t)ifr.ifr_hwaddr.sa_data[2];
             buff_up[7] = 0xFF;
             buff_up[8] = 0xFF;
-            buff_up[9] = (unsigned char)ifr.ifr_hwaddr.sa_data[3];
-            buff_up[10] = (unsigned char)ifr.ifr_hwaddr.sa_data[4];
-            buff_up[11] = (unsigned char)ifr.ifr_hwaddr.sa_data[5];
+            buff_up[9] = (uint8_t)ifr.ifr_hwaddr.sa_data[3];
+            buff_up[10] = (uint8_t)ifr.ifr_hwaddr.sa_data[4];
+            buff_up[11] = (uint8_t)ifr.ifr_hwaddr.sa_data[5];
 
             /* start composing datagram with the header */
             uint8_t token_h = (uint8_t)rand(); /* random token */
@@ -493,7 +514,7 @@ void receivepacket() {
             // TODO: tmst can jump is time is (re)set, not good.
             struct timeval now;
             gettimeofday(&now, NULL);
-            uint32_t tmst = (uint32_t)(now.tv_sec*1000000 + now.tv_usec);
+            uint32_t tmst = (uint32_t)(now.tv_sec * 1000000 + now.tv_usec);
 
             /* start of JSON structure */
             memcpy((void *)(buff_up + buff_index), (void *)"{\"rxpk\":[", 9);
@@ -509,34 +530,36 @@ void receivepacket() {
             memcpy((void *)(buff_up + buff_index), (void *)",\"modu\":\"LORA\"", 14);
             buff_index += 14;
             /* Lora datarate & bandwidth, 16-19 useful chars */
-            switch (sf) {
-            case SF7:
-                memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF7", 12);
-                buff_index += 12;
-                break;
-            case SF8:
-                memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF8", 12);
-                buff_index += 12;
-                break;
-            case SF9:
-                memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF9", 12);
-                buff_index += 12;
-                break;
-            case SF10:
-                memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF10", 13);
-                buff_index += 13;
-                break;
-            case SF11:
-                memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF11", 13);
-                buff_index += 13;
-                break;
-            case SF12:
-                memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF12", 13);
-                buff_index += 13;
-                break;
-            default:
-                memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF?", 12);
-                buff_index += 12;
+            switch (sf)
+            {
+                case SF7:
+                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF7", 12);
+                    buff_index += 12;
+                    break;
+                case SF8:
+                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF8", 12);
+                    buff_index += 12;
+                    break;
+                case SF9:
+                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF9", 12);
+                    buff_index += 12;
+                    break;
+                case SF10:
+                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF10", 13);
+                    buff_index += 13;
+                    break;
+                case SF11:
+                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF11", 13);
+                    buff_index += 13;
+                    break;
+                case SF12:
+                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF12", 13);
+                    buff_index += 13;
+                    break;
+                default:
+                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF?", 12);
+                    buff_index += 12;
+                    break;
             }
             memcpy((void *)(buff_up + buff_index), (void *)"BW125\"", 6);
             buff_index += 6;
@@ -544,7 +567,7 @@ void receivepacket() {
             buff_index += 13;
             j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"lsnr\":%li", SNR);
             buff_index += j;
-            j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"rssi\":%d,\"size\":%u", readRegister(0x1A)-rssicorr, receivedbytes);
+            j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"rssi\":%d,\"size\":%u", ReadRegister(0x1A)-rssicorr, receivedbytes);
             buff_index += j;
             memcpy((void *)(buff_up + buff_index), (void *)",\"data\":\"", 9);
             buff_index += 9;
@@ -566,17 +589,15 @@ void receivepacket() {
             printf("rxpk update: %s\n", (char *)(buff_up + 12)); /* DEBUG: display JSON payload */
 
             //send the messages
-            sendudp(buff_up, buff_index);
+            SendUdp(buff_up, buff_index);
 
             fflush(stdout);
-
         } // received a message
-
     } // dio0=1
 }
 
-int main () {
-
+int main()
+{
     struct timeval nowtime;
     uint32_t lasttime;
 
@@ -585,18 +606,16 @@ int main () {
     pinMode(dio0, INPUT);
     pinMode(RST, OUTPUT);
 
-    //int fd =
     wiringPiSPISetup(CHANNEL, 500000);
-    //cout << "Init result: " << fd << endl;
 
-    loadConfiguration("global_conf.json");
-    printConfiguration();
+    LoadConfiguration("global_conf.json");
+    PrintConfiguration();
 
     SetupLoRa();
 
-    if ( (s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
+    if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
-        die("socket");
+        Die("socket");
     }
     memset((char *) &si_other, 0, sizeof(si_other));
     si_other.sin_family = AF_INET;
@@ -607,25 +626,26 @@ int main () {
 
     /* display result */
     printf("Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",
-           (unsigned char)ifr.ifr_hwaddr.sa_data[0],
-           (unsigned char)ifr.ifr_hwaddr.sa_data[1],
-           (unsigned char)ifr.ifr_hwaddr.sa_data[2],
-           (unsigned char)ifr.ifr_hwaddr.sa_data[3],
-           (unsigned char)ifr.ifr_hwaddr.sa_data[4],
-           (unsigned char)ifr.ifr_hwaddr.sa_data[5]);
+           (uint8_t)ifr.ifr_hwaddr.sa_data[0],
+           (uint8_t)ifr.ifr_hwaddr.sa_data[1],
+           (uint8_t)ifr.ifr_hwaddr.sa_data[2],
+           (uint8_t)ifr.ifr_hwaddr.sa_data[3],
+           (uint8_t)ifr.ifr_hwaddr.sa_data[4],
+           (uint8_t)ifr.ifr_hwaddr.sa_data[5]);
 
     printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
     printf("------------------\n");
 
-    while(1) {
-
-        receivepacket();
+    while(1)
+    {
+        Receivepacket();
 
         gettimeofday(&nowtime, NULL);
         uint32_t nowseconds = (uint32_t)(nowtime.tv_sec);
-        if (nowseconds - lasttime >= 30) {
+        if (nowseconds - lasttime >= 30)
+        {
             lasttime = nowseconds;
-            sendstat();
+            SendStat();
             cp_nb_rx_rcv = 0;
             cp_nb_rx_ok = 0;
             cp_up_pkt_fwd = 0;
@@ -634,10 +654,10 @@ int main () {
     }
 
     return (0);
-
 }
 
-void loadConfiguration(string configurationFile) {
+void LoadConfiguration(string configurationFile)
+{
     FILE* p_file = fopen(configurationFile.c_str(), "r");
     char buffer[65536];
     FileReadStream fs(p_file, buffer, sizeof(buffer));
@@ -662,7 +682,7 @@ void loadConfiguration(string configurationFile) {
                     }
                     else if (key.compare("spread_factor") == 0)
                     {
-                        sf = (sf_t)confIt->value.GetUint();
+                        sf = (SpreadingFactor_t)confIt->value.GetUint();
                     }
                 }
             }
@@ -681,7 +701,7 @@ void loadConfiguration(string configurationFile) {
                         if (serverConf.IsObject())
                         {
                             const Value& serverValue = serverConf;
-                            server_t server;
+                            Server_t server;
                             for (Value::ConstMemberIterator srvIt = serverValue.MemberBegin(); srvIt != serverValue.MemberEnd(); ++srvIt)
                             {
                                 string key(srvIt->name.GetString());
@@ -705,7 +725,7 @@ void loadConfiguration(string configurationFile) {
                             for (SizeType i = 0; i < serverConf.Size(); i++)
                             {
                                 const Value& serverValue = serverConf[i];
-                                server_t server;
+                                Server_t server;
                                 for (Value::ConstMemberIterator srvIt = serverValue.MemberBegin(); srvIt != serverValue.MemberEnd(); ++srvIt)
                                 {
                                     string key(srvIt->name.GetString());
@@ -732,10 +752,11 @@ void loadConfiguration(string configurationFile) {
     }
 }
 
-void printConfiguration() {
+void PrintConfiguration()
+{
     printf("freq = %u\n", freq);
     printf("sf = %hhu\n", sf);
-    for (vector<server_t>::iterator it = servers.begin(); it != servers.end(); ++it)
+    for (vector<Server_t>::iterator it = servers.begin(); it != servers.end(); ++it)
     {
         printf("server: .address = %s; .port = %hu; .enable = %d\n", it->address.c_str(), it->port, it->enabled);
     }
