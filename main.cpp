@@ -135,6 +135,7 @@ vector<Server_t> servers;
 #define SX72_MODE_SLEEP             0x80
 #define SX72_MODE_STANDBY           0x81
 
+
 #define PAYLOAD_LENGTH              0x40
 
 // LOW NOISE AMPLIFIER
@@ -172,6 +173,7 @@ vector<Server_t> servers;
 #define PKT_PUSH_DATA 0
 #define PKT_PUSH_ACK  1
 #define PKT_PULL_DATA 2
+
 #define PKT_PULL_RESP 3
 #define PKT_PULL_ACK  4
 
@@ -427,14 +429,47 @@ void SendStat()
     time_t t = time(NULL);
     strftime(stat_timestamp, sizeof stat_timestamp, "%F %T %Z", gmtime(&t));
 
-    int j = snprintf((char *)(status_report + stat_index), STATUS_SIZE-stat_index, "{\"stat\":{\"time\":\"%s\",\"lati\":%.5f,\"long\":%.5f,\"alti\":%i,\"rxnb\":%u,\"rxok\":%u,\"rxfw\":%u,\"ackr\":%.1f,\"dwnb\":%u,\"txnb\":%u,\"pfrm\":\"%s\",\"mail\":\"%s\",\"desc\":\"%s\"}}", stat_timestamp, lat, lon, (int)alt, cp_nb_rx_rcv, cp_nb_rx_ok, cp_up_pkt_fwd, (float)0, 0, 0,platform,email,description);
-    stat_index += j;
-    status_report[stat_index] = 0; /* add string terminator, for safety */
+    // Build JSON object.
+    StringBuffer sb;
+    Writer<StringBuffer> writer(sb);
+    writer.StartObject();
+    writer.String("stat");
+    writer.StartObject();
+    writer.String("time");
+    writer.String(stat_timestamp);
+    writer.String("lati");
+    writer.Double(lat);
+    writer.String("long");
+    writer.Double(lon);
+    writer.String("alti");
+    writer.Int(alt);
+    writer.String("rxnb");
+    writer.Uint(cp_nb_rx_rcv);
+    writer.String("rxok");
+    writer.Uint(cp_nb_rx_ok);
+    writer.String("rxfw");
+    writer.Uint(cp_up_pkt_fwd);
+    writer.String("ackr");
+    writer.Double(0);
+    writer.String("dwnb");
+    writer.Uint(0);
+    writer.String("txnb");
+    writer.Uint(0);
+    writer.String("pfrm");
+    writer.String(platform);
+    writer.String("mail");
+    writer.String(email);
+    writer.String("desc");
+    writer.String(description);
+    writer.EndObject();
+    writer.EndObject();
 
-    printf("stat update: %s\n", (char *)(status_report+12)); /* DEBUG: display JSON stat */
+    string json = sb.GetString();
+    printf("stat update: %s\n", json.c_str());
 
-    //send the update
-    SendUdp(status_report, stat_index);
+    // Build and send message.
+    memcpy(status_report + 12, json.c_str(), json.size());
+    SendUdp(status_report, stat_index + json.size());
 }
 
 void Receivepacket()
