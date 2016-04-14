@@ -13,6 +13,8 @@
 
 #include <rapidjson/document.h>
 #include <rapidjson/filereadstream.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
@@ -40,9 +42,6 @@ using namespace rapidjson;
 static const int CHANNEL = 0;
 
 uint8_t currentMode = 0x81;
-
-char message[256];
-char b64[256];
 
 bool sx1272 = true;
 
@@ -443,9 +442,10 @@ void Receivepacket()
     long int SNR;
     int rssicorr;
 
-    if(digitalRead(dio0) == 1)
+    if (digitalRead(dio0) == 1)
     {
-        if(ReceivePkt(message))
+        char message[256];
+        if (ReceivePkt(message))
         {
             uint8_t value = ReadRegister(REG_PKT_SNR_VALUE);
             if (value & 0x80) // The SNR sign bit is 1
@@ -469,14 +469,11 @@ void Receivepacket()
                 rssicorr = 157;
             }
 
-            printf("Packet RSSI: %d, " ,ReadRegister(0x1A) - rssicorr);
+            printf("Packet RSSI: %d, ", ReadRegister(0x1A) - rssicorr);
             printf("RSSI: %d, ", ReadRegister(0x1B) - rssicorr);
             printf("SNR: %li, ", SNR);
             printf("Length: %i", (int)receivedbytes);
             printf("\n");
-
-            int j = bin_to_b64((uint8_t *)message, receivedbytes, (char *)b64, 341);
-            //fwrite(b64, sizeof(char), j, stdout);
 
             char buff_up[TX_BUFF_SIZE]; /* buffer to compose the upstream packet */
             int buff_index = 0;
@@ -514,86 +511,83 @@ void Receivepacket()
             // TODO: tmst can jump is time is (re)set, not good.
             struct timeval now;
             gettimeofday(&now, NULL);
-            uint32_t tmst = (uint32_t)(now.tv_sec * 1000000 + now.tv_usec);
+            uint32_t tmst = (uint32_t)(now.tv_sec*1000000 + now.tv_usec);
 
-            /* start of JSON structure */
-            memcpy((void *)(buff_up + buff_index), (void *)"{\"rxpk\":[", 9);
-            buff_index += 9;
-            buff_up[buff_index] = '{';
-            ++buff_index;
-            j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, "\"tmst\":%u", tmst);
-            buff_index += j;
-            j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"chan\":%1u,\"rfch\":%1u,\"freq\":%.6lf", 0, 0, (double)freq/1000000);
-            buff_index += j;
-            memcpy((void *)(buff_up + buff_index), (void *)",\"stat\":1", 9);
-            buff_index += 9;
-            memcpy((void *)(buff_up + buff_index), (void *)",\"modu\":\"LORA\"", 14);
-            buff_index += 14;
-            /* Lora datarate & bandwidth, 16-19 useful chars */
+            // Encode payload.
+            char b64[256];
+            int j = bin_to_b64((uint8_t*)message, receivedbytes, b64, 341);
+
+            // Build JSON object.
+            StringBuffer sb;
+            Writer<StringBuffer> writer(sb);
+            writer.StartObject();
+            writer.String("rxpk");
+            writer.StartArray();
+            writer.StartObject();
+            writer.String("tmst");
+            writer.Uint(tmst);
+            writer.String("freq");
+            writer.Double((double)freq / 1000000);
+            writer.String("chan");
+            writer.Uint(0);
+            writer.String("rfch");
+            writer.Uint(0);
+            writer.String("stat");
+            writer.Uint(1);
+            writer.String("modu");
+            writer.String("LORA");
+            writer.String("datr");
+            string datr = "";
             switch (sf)
             {
                 case SF7:
-                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF7", 12);
-                    buff_index += 12;
+                    datr = "SF7";
                     break;
                 case SF8:
-                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF8", 12);
-                    buff_index += 12;
+                    datr = "SF8";
                     break;
                 case SF9:
-                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF9", 12);
-                    buff_index += 12;
+                    datr = "SF9";
                     break;
                 case SF10:
-                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF10", 13);
-                    buff_index += 13;
+                    datr = "SF10";
                     break;
                 case SF11:
-                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF11", 13);
-                    buff_index += 13;
+                    datr = "SF11";
                     break;
                 case SF12:
-                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF12", 13);
-                    buff_index += 13;
+                    datr = "SF12";
                     break;
                 default:
-                    memcpy((void *)(buff_up + buff_index), (void *)",\"datr\":\"SF?", 12);
-                    buff_index += 12;
+                    datr = "SF?";
                     break;
             }
-            memcpy((void *)(buff_up + buff_index), (void *)"BW125\"", 6);
-            buff_index += 6;
-            memcpy((void *)(buff_up + buff_index), (void *)",\"codr\":\"4/5\"", 13);
-            buff_index += 13;
-            j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"lsnr\":%li", SNR);
-            buff_index += j;
-            j = snprintf((char *)(buff_up + buff_index), TX_BUFF_SIZE-buff_index, ",\"rssi\":%d,\"size\":%u", ReadRegister(0x1A)-rssicorr, receivedbytes);
-            buff_index += j;
-            memcpy((void *)(buff_up + buff_index), (void *)",\"data\":\"", 9);
-            buff_index += 9;
-            j = bin_to_b64((uint8_t *)message, receivedbytes, (char *)(buff_up + buff_index), 341);
-            buff_index += j;
-            buff_up[buff_index] = '"';
-            ++buff_index;
+            datr += "BW125";
+            writer.String(datr.c_str());
+            writer.String("codr");
+            writer.String("4/5");
+            writer.String("rssi");
+            writer.Int(ReadRegister(0x1A) - rssicorr);
+            writer.String("lsnr");
+            writer.Double(SNR); // %li.
+            writer.String("size");
+            writer.Uint(receivedbytes);
+            writer.String("data");
+            writer.String(b64);
+            writer.EndObject();
+            writer.EndArray();
+            writer.EndObject();
 
-            /* End of packet serialization */
-            buff_up[buff_index] = '}';
-            ++buff_index;
-            buff_up[buff_index] = ']';
-            ++buff_index;
-            /* end of JSON datagram payload */
-            buff_up[buff_index] = '}';
-            ++buff_index;
-            buff_up[buff_index] = 0; /* add string terminator, for safety */
+            string json = sb.GetString();
+            printf("rxpk update: %s\n", json.c_str());
 
-            printf("rxpk update: %s\n", (char *)(buff_up + 12)); /* DEBUG: display JSON payload */
-
-            //send the messages
-            SendUdp(buff_up, buff_index);
+            // Build and send message.
+            memcpy(buff_up + 12, json.c_str(), json.size());
+            SendUdp(buff_up, buff_index + json.size());
 
             fflush(stdout);
-        } // received a message
-    } // dio0=1
+        }
+    }
 }
 
 int main()
@@ -625,13 +619,16 @@ int main()
     ioctl(s, SIOCGIFHWADDR, &ifr);
 
     /* display result */
-    printf("Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",
-           (uint8_t)ifr.ifr_hwaddr.sa_data[0],
-           (uint8_t)ifr.ifr_hwaddr.sa_data[1],
-           (uint8_t)ifr.ifr_hwaddr.sa_data[2],
-           (uint8_t)ifr.ifr_hwaddr.sa_data[3],
-           (uint8_t)ifr.ifr_hwaddr.sa_data[4],
-           (uint8_t)ifr.ifr_hwaddr.sa_data[5]);
+    printf
+    (
+        "Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",
+        (uint8_t)ifr.ifr_hwaddr.sa_data[0],
+        (uint8_t)ifr.ifr_hwaddr.sa_data[1],
+        (uint8_t)ifr.ifr_hwaddr.sa_data[2],
+        (uint8_t)ifr.ifr_hwaddr.sa_data[3],
+        (uint8_t)ifr.ifr_hwaddr.sa_data[4],
+        (uint8_t)ifr.ifr_hwaddr.sa_data[5]
+    );
 
     printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
     printf("------------------\n");
