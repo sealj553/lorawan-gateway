@@ -41,11 +41,7 @@ using namespace rapidjson;
 
 static const int CHANNEL = 0;
 
-uint8_t currentMode = 0x81;
-
 bool sx1272 = true;
-
-uint8_t receivedbytes;
 
 struct sockaddr_in si_other;
 int s;
@@ -224,7 +220,7 @@ void WriteRegister(uint8_t addr, uint8_t value)
     UnselectReceiver();
 }
 
-bool ReceivePkt(char* payload)
+bool ReceivePkt(char* payload, uint8_t* p_length)
 {
     // clear rxDone
     WriteRegister(REG_IRQ_FLAGS, 0x40);
@@ -246,7 +242,7 @@ bool ReceivePkt(char* payload)
 
         uint8_t currentAddr = ReadRegister(REG_FIFO_RX_CURRENT_ADDR);
         uint8_t receivedCount = ReadRegister(REG_RX_NB_BYTES);
-        receivedbytes = receivedCount;
+        *p_length = receivedCount;
 
         WriteRegister(REG_FIFO_ADDR_PTR, currentAddr);
 
@@ -480,7 +476,8 @@ void Receivepacket()
     if (digitalRead(dio0) == 1)
     {
         char message[256];
-        if (ReceivePkt(message))
+        uint8_t length = 0;
+        if (ReceivePkt(message, &length))
         {
             uint8_t value = ReadRegister(REG_PKT_SNR_VALUE);
             if (value & 0x80) // The SNR sign bit is 1
@@ -507,7 +504,7 @@ void Receivepacket()
             printf("Packet RSSI: %d, ", ReadRegister(0x1A) - rssicorr);
             printf("RSSI: %d, ", ReadRegister(0x1B) - rssicorr);
             printf("SNR: %li, ", SNR);
-            printf("Length: %i", (int)receivedbytes);
+            printf("Length: %hhu", length);
             printf("\n");
 
             char buff_up[TX_BUFF_SIZE]; /* buffer to compose the upstream packet */
@@ -550,7 +547,7 @@ void Receivepacket()
 
             // Encode payload.
             char b64[256];
-            int j = bin_to_b64((uint8_t*)message, receivedbytes, b64, 341);
+            int j = bin_to_b64((uint8_t*)message, length, b64, 341);
 
             // Build JSON object.
             StringBuffer sb;
@@ -606,7 +603,7 @@ void Receivepacket()
             writer.String("lsnr");
             writer.Double(SNR); // %li.
             writer.String("size");
-            writer.Uint(receivedbytes);
+            writer.Uint(length);
             writer.String("data");
             writer.String(b64);
             writer.EndObject();
