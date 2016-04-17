@@ -39,6 +39,8 @@ using namespace std;
 
 using namespace rapidjson;
 
+#define BASE64_MAX_LENGTH 341
+
 static const int CHANNEL = 0;
 
 bool sx1272 = true;
@@ -84,6 +86,7 @@ int RST   = 0;
 
 // Set spreading factor (SF7 - SF12)
 SpreadingFactor_t sf = SF7;
+uint16_t bw = 125;
 
 // Set center frequency
 uint32_t freq = 868100000; // in Mhz! (868.1)
@@ -543,11 +546,11 @@ void Receivepacket()
             // TODO: tmst can jump is time is (re)set, not good.
             struct timeval now;
             gettimeofday(&now, NULL);
-            uint32_t tmst = (uint32_t)(now.tv_sec*1000000 + now.tv_usec);
+            uint32_t tmst = (uint32_t)(now.tv_sec * 1000000 + now.tv_usec);
 
             // Encode payload.
-            char b64[256];
-            int j = bin_to_b64((uint8_t*)message, length, b64, 341);
+            char b64[BASE64_MAX_LENGTH];
+            int j = bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
 
             // Build JSON object.
             StringBuffer sb;
@@ -569,33 +572,9 @@ void Receivepacket()
             writer.String("modu");
             writer.String("LORA");
             writer.String("datr");
-            string datr = "";
-            switch (sf)
-            {
-                case SF7:
-                    datr = "SF7";
-                    break;
-                case SF8:
-                    datr = "SF8";
-                    break;
-                case SF9:
-                    datr = "SF9";
-                    break;
-                case SF10:
-                    datr = "SF10";
-                    break;
-                case SF11:
-                    datr = "SF11";
-                    break;
-                case SF12:
-                    datr = "SF12";
-                    break;
-                default:
-                    datr = "SF?";
-                    break;
-            }
-            datr += "BW125";
-            writer.String(datr.c_str());
+            char datr[] = "SFxxBWxxx";
+            snprintf(datr, strlen(datr) + 1, "SF%hhuBW%hu", sf, bw);
+            writer.String(datr);
             writer.String("codr");
             writer.String("4/5");
             writer.String("rssi");
