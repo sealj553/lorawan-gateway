@@ -347,6 +347,7 @@ void SetupLoRa()
       printf("SX1276 detected, starting.\n");
       sx1272 = false;
     } else {
+      printf("Transceiver version 0x%02X\n", version);
       Die("Unrecognized transceiver");
     }
   }
@@ -545,8 +546,12 @@ bool Receivepacket()
       printf("Packet RSSI: %d, ", ReadRegister(0x1A) - rssicorr);
       printf("RSSI: %d, ", ReadRegister(0x1B) - rssicorr);
       printf("SNR: %li, ", SNR);
-      printf("Length: %hhu", length);
-      printf("\n");
+      printf("Length: %hhu Message:'", length);
+      for (int i=0; i<length; i++) {
+        char c = (char) message[i];
+        printf("%c",isprint(c)?c:'.');
+      }
+      printf("'\n");
 
       char buff_up[TX_BUFF_SIZE]; /* buffer to compose the upstream packet */
       int buff_index = 0;
@@ -562,12 +567,12 @@ bool Receivepacket()
       /* process some of the configuration variables */
       //net_mac_h = htonl((uint32_t)(0xFFFFFFFF & (lgwm>>32)));
       //net_mac_l = htonl((uint32_t)(0xFFFFFFFF &  lgwm  ));
-      //*(uint32_t *)(buff_up + 4) = net_mac_h;
+      //*(uint32_t *)(buff_up + 4) = net_mac_h; 
       //*(uint32_t *)(buff_up + 8) = net_mac_l;
 
       buff_up[4] = (uint8_t)ifr.ifr_hwaddr.sa_data[0];
       buff_up[5] = (uint8_t)ifr.ifr_hwaddr.sa_data[1];
-      buff_up[6] = (uint8_t)ifr.ifr_hwaddr.sa_data[2];
+      buff_up[6] = (uint8_t)ifr.ifr_hwaddr.sa_data[2]; 
       buff_up[7] = 0xFF;
       buff_up[8] = 0xFF;
       buff_up[9] = (uint8_t)ifr.ifr_hwaddr.sa_data[3];
@@ -649,7 +654,8 @@ int main()
   LoadConfiguration("global_conf.json");
   PrintConfiguration();
 
-  wiringPiSetup () ;
+  // Init WiringPI
+  wiringPiSetup() ;
   pinMode(ssPin, OUTPUT);
   pinMode(dio0, INPUT);
   pinMode(RST, OUTPUT);
@@ -657,17 +663,27 @@ int main()
   // LED ?
   if (Led1 != 0xff) {
     pinMode(Led1, OUTPUT);
-    digitalWrite(Led1, 0);
+
+    // Blink to indicate startup
+    for (uint8_t i=0; i<5 ; i++) {
+      digitalWrite(Led1, 1);
+      delay(200);
+      digitalWrite(Led1, 0);
+      delay(200);
+    }
   }
 
+  // Init SPI
   wiringPiSPISetup(SPI_CHANNEL, 500000);
 
-
+  // Setup LORA
   SetupLoRa();
 
+  // Prepare Socket connection
   if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
     Die("socket");
   }
+
   memset((char *) &si_other, 0, sizeof(si_other));
   si_other.sin_family = AF_INET;
 
@@ -675,7 +691,7 @@ int main()
   strncpy(ifr.ifr_name, "eth0", IFNAMSIZ-1);  // can we rely on eth0?
   ioctl(s, SIOCGIFHWADDR, &ifr);
 
-  /* display result */
+  // ID based on MAC Adddress of eth0
   printf( "Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",
               (uint8_t)ifr.ifr_hwaddr.sa_data[0],
               (uint8_t)ifr.ifr_hwaddr.sa_data[1],
@@ -758,6 +774,8 @@ void LoadConfiguration(string configurationFile)
             dio0 = confIt->value.GetUint();
           } else if (key.compare("pin_rst") == 0) {
             RST = confIt->value.GetUint();
+          } else if (key.compare("pin_led1") == 0) {
+            Led1 = confIt->value.GetUint();
           }
         }
       }
