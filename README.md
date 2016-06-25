@@ -106,7 +106,7 @@ journalctl -f -u single_chan_pkt_fwd
 Pictures
 --------
 
-running daemon on LoRasPI board   
+running daemon on Raspberry PI with LoRasPI shield    
 
 <img src="https://raw.githubusercontent.com/hallard/LoRasPI/master/images/LoRasPI-on-Pi.jpg" alt="LoRasPI plugged on PI">
 
