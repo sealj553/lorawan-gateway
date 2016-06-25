@@ -98,9 +98,9 @@ systemctl stop single_chan_pkt_fwd
 systemctl status single_chan_pkt_fwd
 ````
 
-To see gateway log
+To see gateway log in real time
 ```shell
-journalctl -u single_chan_pkt_fwd
+journalctl -f -u single_chan_pkt_fwd
 ````
 
 **Original README.md below**
