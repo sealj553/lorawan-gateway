@@ -21,7 +21,7 @@ Added new Features
 ------------------
 
 - Added support for [Dragino Lora HAT][2] and [LoRasPi][1] (more to come)
-- pin definition are in
+- pin definition are in config file
 - Removed some configuration hard coded in source file and put them into global_conf.json
 - renamed main.cpp to single_chan_pkt_fwd.cpp
 - added single_chan_pkt_fwd.service for systemd (debian jessie minimal) start 
