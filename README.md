@@ -14,6 +14,74 @@ Part of the source has been copied from the Semtech Packet Forwarder
 
 Maintainer: Thomas Telkamp <thomas@telkamp.eu>
 
+Was forked by @jlesech https://github.com/tftelkamp/single_chan_pkt_fwd to add json configuration file
+then forked by @hallard https://github.com/hallard/single_chan_pkt_fwd 
+
+Added new Features
+------------------
+
+- Added support for [Dragino Lora HAT][2] and [LoRasPi][1] (more to come)
+- pin definition are in
+- Removed some configuration hard coded in source file and put them into global_conf.json
+- renamed main.cpp to single_chan_pkt_fwd.cpp
+- added single_chan_pkt_fwd.service for systemd (debian jessie minimal) start 
+- added `make install` and `make uninstall` into Makefile to install service
+- added control for On board Led's if any
+
+Raspberry PI pin mapping is as follow and pin number in file `global_conf.json` are WiringPi pin number (wPi colunm)
+
+
+```
+root@pi04 # gpio readall
++-----+-----+---------+--B Plus--+---------+-----+-----+
+| BCM | wPi |   Name  | Physical | Name    | wPi | BCM |
++-----+-----+---------+----++----+---------+-----+-----+
+|     |     |    3.3v |  1 || 2  | 5v      |     |     |
+|   2 |   8 |   SDA.1 |  3 || 4  | 5V      |     |     |
+|   3 |   9 |   SCL.1 |  5 || 6  | 0v      |     |     |
+|   4 |   7 | GPIO. 7 |  7 || 8  | TxD     | 15  | 14  |
+|     |     |      0v |  9 || 10 | RxD     | 16  | 15  |
+|  17 |   0 | GPIO. 0 | 11 || 12 | GPIO. 1 | 1   | 18  |
+|  27 |   2 | GPIO. 2 | 13 || 14 | 0v      |     |     |
+|  22 |   3 | GPIO. 3 | 15 || 16 | GPIO. 4 | 4   | 23  |
+|     |     |    3.3v | 17 || 18 | GPIO. 5 | 5   | 24  |
+|  10 |  12 |    MOSI | 19 || 20 | 0v      |     |     |
+|   9 |  13 |    MISO | 21 || 22 | GPIO. 6 | 6   | 25  |
+|  11 |  14 |    SCLK | 23 || 24 | CE0     | 10  | 8   |
+|     |     |      0v | 25 || 26 | CE1     | 11  | 7   |
+|   0 |  30 |   SDA.0 | 27 || 28 | SCL.0   | 31  | 1   |
+|   5 |  21 | GPIO.21 | 29 || 30 | 0v      |     |     |
+|   6 |  22 | GPIO.22 | 31 || 32 | GPIO.26 | 26  | 12  |
+|  13 |  23 | GPIO.23 | 33 || 34 | 0v      |     |     |
+|  19 |  24 | GPIO.24 | 35 || 36 | GPIO.27 | 27  | 16  |
+|  26 |  25 | GPIO.25 | 37 || 38 | GPIO.28 | 28  | 20  |
+|     |     |      0v | 39 || 40 | GPIO.29 | 29  | 21  |
++-----+-----+---------+----++----+---------+-----+-----+
+| BCM | wPi |   Name  | Physical | Name    | wPi | BCM |
++-----+-----+---------+--B Plus--+---------+-----+-----+
+```
+
+* Dragino Hat    
+pins configuration in `global_conf.json` For [Dragino RPI Lora HAT][2]
+```
+  "pin_nss": 6,
+  "pin_dio0": 7,
+  "pin_rst": 0
+```
+
+* LoRasPi    
+pins configuration in file `global_conf.json` for [LoRasPiDragino RPI Lora HAT][1]
+
+```
+  "pin_nss": 8,
+  "pin_dio0": 6,
+  "pin_rst": 3,
+  "pin_led1":4
+```
+
+
+**Original README.md**
+
 Features
 --------
 - listen on configurable frequency and spreading factor
@@ -66,3 +134,9 @@ License
 The source files in this repository are made available under the Eclipse Public License v1.0, except:
 - base64 implementation, that has been copied from the Semtech Packet Forwarder;
 - RapidJSON, licensed under the MIT License.
+
+
+[1]: https://github.com/hallard/LoRasPI
+[2]: http://wiki.dragino.com/index.php?title=Lora/GPS_HAT
+ 
+
