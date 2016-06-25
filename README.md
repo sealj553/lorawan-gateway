@@ -61,16 +61,16 @@ root@pi04 # gpio readall
 +-----+-----+---------+--B Plus--+---------+-----+-----+
 ```
 
-* Dragino Hat    
-pins configuration in `global_conf.json` For [Dragino RPI Lora HAT][2]
+* For [Dragino RPI Lora][2] HAT    
+pins configuration in `global_conf.json`
 ```
   "pin_nss": 6,
   "pin_dio0": 7,
   "pin_rst": 0
 ```
 
-* LoRasPi    
-pins configuration in file `global_conf.json` for [LoRasPi][1]
+* For [LoRasPi][1] Shield    
+pins configuration in file `global_conf.json`
 
 ```
   "pin_nss": 8,
@@ -102,6 +102,15 @@ To see gateway log in real time
 ```shell
 journalctl -f -u single_chan_pkt_fwd
 ````
+
+Pictures
+--------
+
+running daemon on LoRasPI board   
+
+<img src="https://raw.githubusercontent.com/hallard/LoRasPI/master/images/LoRasPI-on-Pi.jpg" alt="LoRasPI plugged on PI">
+
+
 
 **Original README.md below**
 
