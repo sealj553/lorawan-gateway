@@ -14,7 +14,7 @@ Part of the source has been copied from the Semtech Packet Forwarder
 
 Maintainer: Thomas Telkamp <thomas@telkamp.eu>
 
-Was forked by @jlesech https://github.com/tftelkamp/single_chan_pkt_fwd to add json configuration file
+Was forked by @jlesech https://github.com/tftelkamp/single_chan_pkt_fwd to add json configuration file    
 then forked by @hallard https://github.com/hallard/single_chan_pkt_fwd 
 
 Added new Features
@@ -70,7 +70,7 @@ pins configuration in `global_conf.json` For [Dragino RPI Lora HAT][2]
 ```
 
 * LoRasPi    
-pins configuration in file `global_conf.json` for [LoRasPiDragino RPI Lora HAT][1]
+pins configuration in file `global_conf.json` for [LoRasPi][1]
 
 ```
   "pin_nss": 8,
@@ -79,8 +79,31 @@ pins configuration in file `global_conf.json` for [LoRasPiDragino RPI Lora HAT][
   "pin_led1":4
 ```
 
+Installation
+------------
 
-**Original README.md**
+Install dependencies as indicated in original README.md below then
+
+```shell
+cd /home/pi
+git clone https://github.com/hallard/single_chan_pkt_fwd
+make
+sudo make install
+````
+
+To start service (should already be started at boot if you done make install and rebooted of course), stop service or look service status
+```shell
+systemctl start single_chan_pkt_fwd
+systemctl stop single_chan_pkt_fwd
+systemctl status single_chan_pkt_fwd
+````
+
+To see gateway log
+```shell
+journalctl -u single_chan_pkt_fwd
+````
+
+**Original README.md below**
 
 Features
 --------
