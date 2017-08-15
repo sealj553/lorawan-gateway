@@ -79,6 +79,24 @@ pins configuration in file `global_conf.json`
   "pin_led1":4
 ```
 
+* For [RPI-Lora-Gateway][3] Shield    
+pins configuration in file `global_conf.json`
+
+```
+Module-1 //have to check in my Pi
+  "pin_nss": 10,
+  "pin_dio0": 6,
+  "pin_rst": 21,
+  "pin_led1": 7
+
+Module-2 //have to check in my Pi
+  "pin_nss": 11,
+  "pin_dio0": 27,
+  "pin_rst": 22,
+  "pin_led1": 1
+
+```
+
 Installation
 ------------
 
@@ -170,5 +188,6 @@ The source files in this repository are made available under the Eclipse Public 
 
 [1]: https://github.com/hallard/LoRasPI
 [2]: http://wiki.dragino.com/index.php?title=Lora/GPS_HAT
+[3]: https://github.com/hallard/RPI-Lora-Gateway
  
 
