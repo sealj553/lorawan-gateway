@@ -1,15 +1,15 @@
 #include "spi.h"
 
-#include <mpsse.h>
+#include "mpsse.h"
 #include <stdio.h>
 #include <stdlib.h>
 
 #define SPI_DEV SPI0
 #define REG_SZ 2
 
-static mpsse_context *flash = NULL;
-uint8_t dataRead[2];
-uint8_t dataWrite[2];
+static struct mpsse_context *flash = NULL;
+char dataRead[2];
+char dataWrite[2];
 
 int spi_init(){
     return (flash = MPSSE(SPI_DEV, TWELVE_MHZ, MSB)) != NULL && flash->open;
@@ -21,8 +21,8 @@ const char* spi_get_error(){
 
 void spi_rw(){
     Start(flash);
-    FastWrite(flash, (char*)dataWrite, REG_SZ);
-    FastRead(flash, (char*)dataRead, REG_SZ);
+    FastWrite(flash, dataWrite, REG_SZ);
+    FastRead(flash, dataRead, REG_SZ);
     Stop(flash);
 }
 

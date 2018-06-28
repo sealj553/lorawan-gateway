@@ -1,18 +1,30 @@
 # single_chan_pkt_fwd
 # Single Channel LoRaWAN Gateway
 
-CC      = g++
-CFLAGS  = -std=c++11 -Wall -Wextra -Wfatal-errors
-LDFLAGS = -lmpsse
-TARGET  = single_chan_pkt_fwd
+CC       = gcc
+CXX      = g++
+LDFLAGS  = -lftdi
+CPPFLAGS =
+CFLAGS   = -Wall -Wextra -Wfatal-errors
+CXXFLAGS = -std=c++11
+TARGET   = single_chan_pkt_fwd
 
 all: $(TARGET)
 
-$(TARGET): base64.o main.o spi.o
-	$(CC) main.o base64.o spi.o -o $(TARGET) $(LDFLAGS)
+$(TARGET): base64.o main.o spi.o mpsse.o fast.o support.o
+	$(CXX) main.o base64.o spi.o mpsse.o fast.o support.o -o $(TARGET) $(LDFLAGS)
+
+mpsse.o: mpsse.c
+	$(CC) $(CFLAGS) -c mpsse.c
+
+fast.o: fast.c
+	$(CC) $(CFLAGS) -c fast.c
+
+support.o: support.c
+	$(CC) $(CFLAGS) -c support.c
 
 main.o: main.cpp
-	$(CC) $(CFLAGS) -c main.cpp
+	$(CXX) $(CFLAGS) -c main.cpp
 
 base64.o: base64.c
 	$(CC) $(CFLAGS) -c base64.c

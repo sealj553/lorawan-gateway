@@ -1,32 +1,27 @@
 {
-  "SX127x_conf":
-  {
-    "freq": 916800000,
-    "spread_factor": 7
-  },
-  "gateway_conf":
-  {
-    "ref_latitude": 0.0,
-    "ref_longitude": 0.0,
-    "ref_altitude": 10,
+    "SX127x_conf":
+    {
+        "freq": 916800000,
+        "spread_factor": 7
+    },
+    "gateway_conf":
+    {
+        "ref_latitude": 42.36339,
+        "ref_longitude": -71.09260,
+        "ref_altitude": 60,
 
-    "name": "SC Gateway",
-    "email": "contact@whatever.com",
-    "desc": "Dragino Single Channel Gateway on RPI",
+        "name": "rpi-single-channel",
+        "email": "IoTNeT@mit.edu",
+        "desc": "RPI Single Channel Gateway",
 
-    "servers":
-    [
-      {
-        "address": "router.eu.staging.thethings.network",
-        "port": 1700,
-        "enabled": true
-      },
-      {
-        "address": "router.eu.thethings.network",
-        "port": 1700,
-        "enabled": false
-      }
-    ]
-  }
+        "servers":
+        [
+            {
+                "address": "router.us.thethings.network",
+                "port": 1700,
+                "enabled": true
+            }
+        ]
+    }
 }
 

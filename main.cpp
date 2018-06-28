@@ -8,6 +8,7 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  *******************************************************************************/
+extern "C" {
 #include "base64.h"
 #include "spi.h"
 
@@ -18,6 +19,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <netdb.h>
+}
 
 #include <rapidjson/document.h>
 #include <rapidjson/filereadstream.h>
