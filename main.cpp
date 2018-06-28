@@ -1,4 +1,4 @@
-/*******************************************************************************
+ /******************************************************************************
  *
  * Copyright (c) 2015 Thomas Telkamp
  *
@@ -8,16 +8,8 @@
  * http://www.eclipse.org/legal/epl-v10.html
  *
  *******************************************************************************/
-
 #include "base64.h"
-
-#include <rapidjson/document.h>
-#include <rapidjson/filereadstream.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
-
-#include <wiringPi.h>
-#include <wiringPiSPI.h>
+#include "spi.h"
 
 #include <arpa/inet.h>
 #include <net/if.h>
@@ -27,23 +19,28 @@
 #include <sys/types.h>
 #include <netdb.h>
 
+#include <rapidjson/document.h>
+#include <rapidjson/filereadstream.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
+
 #include <cstdlib>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <iostream>
 #include <string>
 #include <vector>
 
-using namespace std;
+using std::string;
+using std::vector;
 
 using namespace rapidjson;
 
 #define BASE64_MAX_LENGTH 341
 
-static const int CHANNEL = 0;
-
-bool sx1272 = true;
+bool sx1272 = false;
 
 struct sockaddr_in si_other;
 int s;
@@ -52,12 +49,12 @@ struct ifreq ifr;
 
 uint32_t cp_nb_rx_rcv;
 uint32_t cp_nb_rx_ok;
+uint32_t cp_nb_rx_ok_tot;
 uint32_t cp_nb_rx_bad;
 uint32_t cp_nb_rx_nocrc;
 uint32_t cp_up_pkt_fwd;
 
-typedef enum SpreadingFactors
-{
+typedef enum SpreadingFactors {
     SF7 = 7,
     SF8,
     SF9,
@@ -66,8 +63,7 @@ typedef enum SpreadingFactors
     SF12
 } SpreadingFactor_t;
 
-typedef struct Server
-{
+typedef struct Server {
     string address;
     uint16_t port;
     bool enabled;
@@ -75,31 +71,26 @@ typedef struct Server
 
 /*******************************************************************************
  *
- * Configure these values!
+ * Default values, configure them in global_conf.json
  *
  *******************************************************************************/
 
-// SX1272 - Raspberry connections
-int ssPin = 6;
-int dio0  = 7;
-int RST   = 0;
-
-// Set spreading factor (SF7 - SF12)
-SpreadingFactor_t sf = SF7;
-uint16_t bw = 125;
-
-// Set center frequency
-uint32_t freq = 868100000; // in Mhz! (868.1)
-
-// Set location
-float lat = 0.0;
-float lon = 0.0;
-int   alt = 0;
+// Set location in global_conf.json
+float lat =  0.0;
+float lon =  0.0;
+int   alt =  0;
 
 /* Informal status fields */
-static char platform[24]    = "Single Channel Gateway";  /* platform definition */
-static char email[40]       = "";                        /* used for contact email */
-static char description[64] = "";                        /* used for free form description */
+char platform[24] ;    /* platform definition */
+char email[40] ;       /* used for contact email */
+char description[64] ; /* used for free form description */
+
+// Set spreading factor (SF7 - SF12), &nd  center frequency
+// Overwritten by the ones set in global_conf.json
+SpreadingFactor_t sf = SF7;
+uint16_t bw = 125;
+uint32_t freq = 916800000; // in Mhz! (868.1)
+
 
 // Servers
 vector<Server_t> servers;
@@ -158,13 +149,13 @@ vector<Server_t> servers;
 #define SX72_MC1_LOW_DATA_RATE_OPTIMIZE  0x01 // mandated for SF11 and SF12
 
 // FRF
-#define        REG_FRF_MSB              0x06
-#define        REG_FRF_MID              0x07
-#define        REG_FRF_LSB              0x08
+#define REG_FRF_MSB              0x06
+#define REG_FRF_MID              0x07
+#define REG_FRF_LSB              0x08
 
-#define        FRF_MSB                  0xD9 // 868.1 Mhz
-#define        FRF_MID                  0x06
-#define        FRF_LSB                  0x66
+//#define FRF_MSB                  0xD9 // 868.1 Mhz
+//#define FRF_MID                  0x06
+//#define FRF_LSB                  0x66
 
 #define BUFLEN 2048  //Max length of buffer
 
@@ -180,47 +171,29 @@ vector<Server_t> servers;
 #define STATUS_SIZE     1024
 
 void LoadConfiguration(string filename);
-
 void PrintConfiguration();
+
+long millis(void){
+    struct timespec time;
+    clock_gettime(CLOCK_MONOTONIC, &time);
+    return time.tv_nsec / 1000000L;
+}
+
+void delay(unsigned int ms)
+{
+    static struct timespec time;
+    time.tv_sec = ms / 1000;
+    if(time.tv_sec > 0){
+        ms -= time.tv_sec * 1000;
+    }
+    time.tv_nsec = ms * 1000000L;
+    nanosleep(&time, NULL);
+}
 
 void Die(const char *s)
 {
     perror(s);
     exit(1);
-}
-
-void SelectReceiver()
-{
-    digitalWrite(ssPin, LOW);
-}
-
-void UnselectReceiver()
-{
-    digitalWrite(ssPin, HIGH);
-}
-
-uint8_t ReadRegister(uint8_t addr)
-{
-    uint8_t spibuf[2];
-    spibuf[0] = addr & 0x7F;
-    spibuf[1] = 0x00;
-
-    SelectReceiver();
-    wiringPiSPIDataRW(CHANNEL, spibuf, 2);
-    UnselectReceiver();
-
-    return spibuf[1];
-}
-
-void WriteRegister(uint8_t addr, uint8_t value)
-{
-    uint8_t spibuf[2];
-    spibuf[0] = addr | 0x80;
-    spibuf[1] = value;
-
-    SelectReceiver();
-    wiringPiSPIDataRW(CHANNEL, spibuf, 2);
-    UnselectReceiver();
 }
 
 bool ReceivePkt(char* payload, uint8_t* p_length)
@@ -233,15 +206,14 @@ bool ReceivePkt(char* payload, uint8_t* p_length)
     cp_nb_rx_rcv++;
 
     //  payload crc: 0x20
-    if((irqflags & 0x20) == 0x20)
-    {
+    if((irqflags & 0x20) == 0x20) {
         printf("CRC error\n");
         WriteRegister(REG_IRQ_FLAGS, 0x20);
         return false;
-    }
-    else
-    {
+
+    } else {
         cp_nb_rx_ok++;
+        cp_nb_rx_ok_tot++;
 
         uint8_t currentAddr = ReadRegister(REG_FIFO_RX_CURRENT_ADDR);
         uint8_t receivedCount = ReadRegister(REG_RX_NB_BYTES);
@@ -249,8 +221,7 @@ bool ReceivePkt(char* payload, uint8_t* p_length)
 
         WriteRegister(REG_FIFO_ADDR_PTR, currentAddr);
 
-        for(int i = 0; i < receivedCount; i++)
-        {
+        for(int i = 0; i < receivedCount; i++) {
             payload[i] = ReadRegister(REG_FIFO);
         }
     }
@@ -259,38 +230,40 @@ bool ReceivePkt(char* payload, uint8_t* p_length)
 
 void SetupLoRa()
 {
-    digitalWrite(RST, HIGH);
-    delay(100);
-    digitalWrite(RST, LOW);
-    delay(100);
+    //char buff[16];
+    //printf("Trying to detect module with ");
+    //printf("NSS=%s "  , PinName(ssPin, buff));
+    //printf("DIO0=%s " , PinName(dio0 , buff));
+    //printf("Reset=%s ", PinName(RST  , buff));
+    //printf("Led1=%s\n", PinName(Led1 , buff));
+
+    // check basic 
+    //if (ssPin == 0xff || dio0 == 0xff) {
+    //  Die("Bad pin configuration ssPin and dio0 need at least to be defined");
+    //}
+
+    //digitalWrite(RST, HIGH);
+    //delay(100);
+    //digitalWrite(RST, LOW);
+    //delay(100);
 
     uint8_t version = ReadRegister(REG_VERSION);
 
-    if (version == 0x22)
-    {
+    if (version == 0x22) {
         // sx1272
         printf("SX1272 detected, starting.\n");
         sx1272 = true;
-    }
-    else
-    {
+    } else {
         // sx1276?
-        digitalWrite(RST, LOW);
-        delay(100);
-        digitalWrite(RST, HIGH);
-        delay(100);
+        //digitalWrite(RST, LOW);
         version = ReadRegister(REG_VERSION);
-        if (version == 0x12)
-        {
+        if (version == 0x12) {
             // sx1276
             printf("SX1276 detected, starting.\n");
             sx1272 = false;
-        }
-        else
-        {
-            printf("Unrecognized transceiver.\n");
-            //printf("Version: 0x%x\n",version);
-            exit(1);
+        } else {
+            printf("Transceiver version 0x%02X\n", version);
+            Die("Unrecognized transceiver");
         }
     }
 
@@ -304,38 +277,26 @@ void SetupLoRa()
 
     WriteRegister(REG_SYNC_WORD, 0x34); // LoRaWAN public sync word
 
-    if (sx1272)
-    {
-        if (sf == SF11 || sf == SF12)
-        {
+    if (sx1272) {
+        if (sf == SF11 || sf == SF12) {
             WriteRegister(REG_MODEM_CONFIG, 0x0B);
-        }
-        else
-        {
+        } else {
             WriteRegister(REG_MODEM_CONFIG, 0x0A);
         }
         WriteRegister(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
-    }
-    else
-    {
-        if (sf == SF11 || sf == SF12)
-        {
+    } else {
+        if (sf == SF11 || sf == SF12) {
             WriteRegister(REG_MODEM_CONFIG3, 0x0C);
-        }
-        else
-        {
+        } else {
             WriteRegister(REG_MODEM_CONFIG3, 0x04);
         }
         WriteRegister(REG_MODEM_CONFIG, 0x72);
         WriteRegister(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
     }
 
-    if (sf == SF10 || sf == SF11 || sf == SF12)
-    {
+    if (sf == SF10 || sf == SF11 || sf == SF12) {
         WriteRegister(REG_SYMB_TIMEOUT_LSB, 0x05);
-    }
-    else
-    {
+    } else {
         WriteRegister(REG_SYMB_TIMEOUT_LSB, 0x08);
     }
     WriteRegister(REG_MAX_PAYLOAD_LENGTH, 0x80);
@@ -363,15 +324,13 @@ void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_
 
     // Resolve the domain name into a list of addresses
     int error = getaddrinfo(p_hostname, service, &hints, &p_result);
-    if (error != 0)
-    {
+    if (error != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
         exit(EXIT_FAILURE);
     }
 
     // Loop over all returned results
-    for (struct addrinfo* p_rp = p_result; p_rp != NULL; p_rp = p_rp->ai_next)
-    {
+    for (struct addrinfo* p_rp = p_result; p_rp != NULL; p_rp = p_rp->ai_next) {
         struct sockaddr_in* p_saddr = (struct sockaddr_in*)p_rp->ai_addr;
         //printf("%s solved to %s\n", p_hostname, inet_ntoa(p_saddr->sin_addr));
         p_sin->sin_addr = p_saddr->sin_addr;
@@ -382,15 +341,12 @@ void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_
 
 void SendUdp(char *msg, int length)
 {
-    for (vector<Server_t>::iterator it = servers.begin(); it != servers.end(); ++it)
-    {
-        if (it->enabled)
-        {
+    for (vector<Server_t>::iterator it = servers.begin(); it != servers.end(); ++it) {
+        if (it->enabled) {
             si_other.sin_port = htons(it->port);
 
             SolveHostname(it->address.c_str(), it->port, &si_other);
-            if (sendto(s, (char *)msg, length, 0 , (struct sockaddr *) &si_other, slen)==-1)
-            {
+            if (sendto(s, (char *)msg, length, 0 , (struct sockaddr *) &si_other, slen)==-1) {
                 Die("sendto()");
             }
         }
@@ -464,51 +420,55 @@ void SendStat()
     writer.EndObject();
 
     string json = sb.GetString();
-    printf("stat update: %s\n", json.c_str());
+    //printf("stat update: %s\n", json.c_str());
+    printf("stat update: %s", stat_timestamp);
+    if (cp_nb_rx_ok_tot==0) {
+        printf(" no packet received yet\n");
+    } else {
+        printf(" %u packet%sreceived\n", cp_nb_rx_ok_tot, cp_nb_rx_ok_tot>1?"s ":" ");
+    }
 
     // Build and send message.
     memcpy(status_report + 12, json.c_str(), json.size());
     SendUdp(status_report, stat_index + json.size());
 }
 
-void Receivepacket()
+bool Receivepacket()
 {
     long int SNR;
     int rssicorr;
+    bool ret = false;
 
-    if (digitalRead(dio0) == 1)
-    {
+    //if (digitalRead(dio0) == 1) {
+    //fix
+    if(1){
         char message[256];
         uint8_t length = 0;
-        if (ReceivePkt(message, &length))
-        {
+        if (ReceivePkt(message, &length)) {
+            // OK got one
+            ret = true;
+
             uint8_t value = ReadRegister(REG_PKT_SNR_VALUE);
-            if (value & 0x80) // The SNR sign bit is 1
-            {
+            if (value & 0x80) { // The SNR sign bit is 1
                 // Invert and divide by 4
                 value = ((~value + 1) & 0xFF) >> 2;
                 SNR = -value;
-            }
-            else
-            {
+            } else {
                 // Divide by 4
                 SNR = ( value & 0xFF ) >> 2;
             }
 
-            if (sx1272)
-            {
-                rssicorr = 139;
-            }
-            else
-            {
-                rssicorr = 157;
-            }
+            rssicorr = sx1272 ? 139 : 157;
 
             printf("Packet RSSI: %d, ", ReadRegister(0x1A) - rssicorr);
             printf("RSSI: %d, ", ReadRegister(0x1B) - rssicorr);
             printf("SNR: %li, ", SNR);
-            printf("Length: %hhu", length);
-            printf("\n");
+            printf("Length: %hhu Message:'", length);
+            for (int i=0; i<length; i++) {
+                char c = (char) message[i];
+                printf("%c",isprint(c)?c:'.');
+            }
+            printf("'\n");
 
             char buff_up[TX_BUFF_SIZE]; /* buffer to compose the upstream packet */
             int buff_index = 0;
@@ -524,12 +484,12 @@ void Receivepacket()
             /* process some of the configuration variables */
             //net_mac_h = htonl((uint32_t)(0xFFFFFFFF & (lgwm>>32)));
             //net_mac_l = htonl((uint32_t)(0xFFFFFFFF &  lgwm  ));
-            //*(uint32_t *)(buff_up + 4) = net_mac_h;
+            //*(uint32_t *)(buff_up + 4) = net_mac_h; 
             //*(uint32_t *)(buff_up + 8) = net_mac_l;
 
             buff_up[4] = (uint8_t)ifr.ifr_hwaddr.sa_data[0];
             buff_up[5] = (uint8_t)ifr.ifr_hwaddr.sa_data[1];
-            buff_up[6] = (uint8_t)ifr.ifr_hwaddr.sa_data[2];
+            buff_up[6] = (uint8_t)ifr.ifr_hwaddr.sa_data[2]; 
             buff_up[7] = 0xFF;
             buff_up[8] = 0xFF;
             buff_up[9] = (uint8_t)ifr.ifr_hwaddr.sa_data[3];
@@ -550,7 +510,7 @@ void Receivepacket()
 
             // Encode payload.
             char b64[BASE64_MAX_LENGTH];
-            int j = bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
+            bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
 
             // Build JSON object.
             StringBuffer sb;
@@ -599,29 +559,54 @@ void Receivepacket()
             fflush(stdout);
         }
     }
+    return ret;
 }
 
 int main()
 {
     struct timeval nowtime;
     uint32_t lasttime;
-
-    wiringPiSetup () ;
-    pinMode(ssPin, OUTPUT);
-    pinMode(dio0, INPUT);
-    pinMode(RST, OUTPUT);
-
-    wiringPiSPISetup(CHANNEL, 500000);
+    unsigned int led1_timer;
 
     LoadConfiguration("global_conf.json");
     PrintConfiguration();
 
+    // Init WiringPI
+    //wiringPiSetup() ;
+    //pinMode(ssPin, OUTPUT);
+    //pinMode(dio0, INPUT);
+    //pinMode(RST, OUTPUT);
+
+    if(!spi_init()){
+        fprintf(stderr, "Failed to initialize SPI: %s\n", spi_get_error());
+        exit(1);
+    }
+
+    // LED ?
+    //if (Led1 != 0xff) {
+    //  pinMode(Led1, OUTPUT);
+
+    //  // Blink to indicate startup
+    //  for (uint8_t i=0; i<5 ; i++) {
+    //    digitalWrite(Led1, 1);
+    //    delay(200);
+    //    digitalWrite(Led1, 0);
+    //    delay(200);
+    //  }
+    //}
+
+    // Init SPI
+    //fix
+    //wiringPiSPISetup(SPI_CHANNEL, 500000);
+
+    // Setup LORA
     SetupLoRa();
 
-    if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
-    {
+    // Prepare Socket connection
+    if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
         Die("socket");
     }
+
     memset((char *) &si_other, 0, sizeof(si_other));
     si_other.sin_family = AF_INET;
 
@@ -629,143 +614,158 @@ int main()
     strncpy(ifr.ifr_name, "eth0", IFNAMSIZ-1);  // can we rely on eth0?
     ioctl(s, SIOCGIFHWADDR, &ifr);
 
-    /* display result */
-    printf
-    (
-        "Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",
-        (uint8_t)ifr.ifr_hwaddr.sa_data[0],
-        (uint8_t)ifr.ifr_hwaddr.sa_data[1],
-        (uint8_t)ifr.ifr_hwaddr.sa_data[2],
-        (uint8_t)ifr.ifr_hwaddr.sa_data[3],
-        (uint8_t)ifr.ifr_hwaddr.sa_data[4],
-        (uint8_t)ifr.ifr_hwaddr.sa_data[5]
-    );
+    // ID based on MAC Adddress of eth0
+    printf( "Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",
+            (uint8_t)ifr.ifr_hwaddr.sa_data[0],
+            (uint8_t)ifr.ifr_hwaddr.sa_data[1],
+            (uint8_t)ifr.ifr_hwaddr.sa_data[2],
+            (uint8_t)ifr.ifr_hwaddr.sa_data[3],
+            (uint8_t)ifr.ifr_hwaddr.sa_data[4],
+            (uint8_t)ifr.ifr_hwaddr.sa_data[5]
+          );
 
     printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
-    printf("------------------\n");
+    printf("-----------------------------------\n");
 
-    while(1)
-    {
-        Receivepacket();
+    while(1) {
+
+        // Packet received ?
+        if (Receivepacket()) {
+            // Led ON
+            //if (Led1 != 0xff) {
+            //  digitalWrite(Led1, 1);
+            //}
+
+            // start our Led blink timer, LED as been lit in Receivepacket
+            //fix
+            led1_timer=millis();
+        }
 
         gettimeofday(&nowtime, NULL);
         uint32_t nowseconds = (uint32_t)(nowtime.tv_sec);
-        if (nowseconds - lasttime >= 30)
-        {
+        if (nowseconds - lasttime >= 30) {
             lasttime = nowseconds;
             SendStat();
             cp_nb_rx_rcv = 0;
             cp_nb_rx_ok = 0;
             cp_up_pkt_fwd = 0;
         }
+
+        // Led timer in progress ?
+        if (led1_timer) {
+            // Led timer expiration, Blink duration is 250ms
+            if (millis() - led1_timer >= 250) {
+                // Stop Led timer
+                led1_timer = 0;
+
+                // Led OFF
+                //if (Led1 != 0xff) {
+                //    digitalWrite(Led1, 0);
+                //}
+            }
+        }
+
+        // Let some time to the OS
         delay(1);
     }
 
     return (0);
-}
+    }
 
-void LoadConfiguration(string configurationFile)
-{
-    FILE* p_file = fopen(configurationFile.c_str(), "r");
-    char buffer[65536];
-    FileReadStream fs(p_file, buffer, sizeof(buffer));
-
-    Document document;
-    document.ParseStream(fs);
-
-    for (Value::ConstMemberIterator fileIt = document.MemberBegin(); fileIt != document.MemberEnd(); ++fileIt)
+    void LoadConfiguration(string configurationFile)
     {
-        string objectType(fileIt->name.GetString());
-        if (objectType.compare("SX127x_conf") == 0)
-        {
-            const Value& sx127x_conf = fileIt->value;
-            if (sx127x_conf.IsObject())
-            {
-                for (Value::ConstMemberIterator confIt = sx127x_conf.MemberBegin(); confIt != sx127x_conf.MemberEnd(); ++confIt)
-                {
-                    string key(confIt->name.GetString());
-                    if (key.compare("freq") == 0)
-                    {
-                        freq = confIt->value.GetUint();
-                    }
-                    else if (key.compare("spread_factor") == 0)
-                    {
-                        sf = (SpreadingFactor_t)confIt->value.GetUint();
+        FILE* p_file = fopen(configurationFile.c_str(), "r");
+        char buffer[65536];
+        FileReadStream fs(p_file, buffer, sizeof(buffer));
+
+        Document document;
+        document.ParseStream(fs);
+
+        for (Value::ConstMemberIterator fileIt = document.MemberBegin(); fileIt != document.MemberEnd(); ++fileIt) {
+            string objectType(fileIt->name.GetString());
+            if (objectType.compare("SX127x_conf") == 0) {
+                const Value& sx127x_conf = fileIt->value;
+                if (sx127x_conf.IsObject()) {
+                    for (Value::ConstMemberIterator confIt = sx127x_conf.MemberBegin(); confIt != sx127x_conf.MemberEnd(); ++confIt) {
+                        string key(confIt->name.GetString());
+                        if (key.compare("freq") == 0) {
+                            freq = confIt->value.GetUint();
+                        } else if (key.compare("spread_factor") == 0) {
+                            sf = (SpreadingFactor_t)confIt->value.GetUint();
+                        }
                     }
                 }
-            }
-        }
-        else if (objectType.compare("gateway_conf") == 0)
-        {
-            const Value& gateway_conf = fileIt->value;
-            if (gateway_conf.IsObject())
-            {
-                for (Value::ConstMemberIterator confIt = gateway_conf.MemberBegin(); confIt != gateway_conf.MemberEnd(); ++confIt)
-                {
-                    string memberType(confIt->name.GetString());
-                    if (memberType.compare("servers") == 0)
-                    {
-                        const Value& serverConf = confIt->value;
-                        if (serverConf.IsObject())
-                        {
-                            const Value& serverValue = serverConf;
-                            Server_t server;
-                            for (Value::ConstMemberIterator srvIt = serverValue.MemberBegin(); srvIt != serverValue.MemberEnd(); ++srvIt)
-                            {
-                                string key(srvIt->name.GetString());
-                                if (key.compare("address") == 0 && srvIt->value.IsString())
-                                {
-                                    server.address = srvIt->value.GetString();
-                                }
-                                else if (key.compare("port") == 0 && srvIt->value.IsUint())
-                                {
-                                    server.port = srvIt->value.GetUint();
-                                }
-                                else if (key.compare("enabled") == 0 && srvIt->value.IsBool())
-                                {
-                                    server.enabled = srvIt->value.GetBool();
-                                }
-                            }
-                            servers.push_back(server);
-                        }
-                        else if (serverConf.IsArray())
-                        {
-                            for (SizeType i = 0; i < serverConf.Size(); i++)
-                            {
-                                const Value& serverValue = serverConf[i];
+
+            } else if (objectType.compare("gateway_conf") == 0) {
+                const Value& gateway_conf = fileIt->value;
+                if (gateway_conf.IsObject()) {
+                    for (Value::ConstMemberIterator confIt = gateway_conf.MemberBegin(); confIt != gateway_conf.MemberEnd(); ++confIt) {
+                        string memberType(confIt->name.GetString());
+                        if (memberType.compare("ref_latitude") == 0) {
+                            lat = confIt->value.GetDouble();
+                        } else if (memberType.compare("ref_longitude") == 0) {
+                            lon = confIt->value.GetDouble();
+                        } else if (memberType.compare("ref_altitude") == 0) {
+                            alt = confIt->value.GetUint(); 
+
+                        } else if (memberType.compare("name") == 0 && confIt->value.IsString()) {
+                            string str = confIt->value.GetString();
+                            strcpy(platform, str.length()<=24 ? str.c_str() : "name too long");
+                        } else if (memberType.compare("email") == 0 && confIt->value.IsString()) {
+                            string str = confIt->value.GetString();
+                            strcpy(email, str.length()<=40 ? str.c_str() : "email too long");
+                        } else if (memberType.compare("desc") == 0 && confIt->value.IsString()) {
+                            string str = confIt->value.GetString();
+                            strcpy(description, str.length()<=64 ? str.c_str() : "description is too long");
+
+                        } else if (memberType.compare("servers") == 0) {
+                            const Value& serverConf = confIt->value;
+                            if (serverConf.IsObject()) {
+                                const Value& serverValue = serverConf;
                                 Server_t server;
-                                for (Value::ConstMemberIterator srvIt = serverValue.MemberBegin(); srvIt != serverValue.MemberEnd(); ++srvIt)
-                                {
+                                for (Value::ConstMemberIterator srvIt = serverValue.MemberBegin(); srvIt != serverValue.MemberEnd(); ++srvIt) {
                                     string key(srvIt->name.GetString());
-                                    if (key.compare("address") == 0 && srvIt->value.IsString())
-                                    {
+                                    if (key.compare("address") == 0 && srvIt->value.IsString()) {
                                         server.address = srvIt->value.GetString();
-                                    }
-                                    else if (key.compare("port") == 0 && srvIt->value.IsUint())
-                                    {
+                                    } else if (key.compare("port") == 0 && srvIt->value.IsUint()) {
                                         server.port = srvIt->value.GetUint();
-                                    }
-                                    else if (key.compare("enabled") == 0 && srvIt->value.IsBool())
-                                    {
+                                    } else if (key.compare("enabled") == 0 && srvIt->value.IsBool()) {
                                         server.enabled = srvIt->value.GetBool();
                                     }
                                 }
                                 servers.push_back(server);
                             }
+                            else if (serverConf.IsArray()) {
+                                for (SizeType i = 0; i < serverConf.Size(); i++) {
+                                    const Value& serverValue = serverConf[i];
+                                    Server_t server;
+                                    for (Value::ConstMemberIterator srvIt = serverValue.MemberBegin(); srvIt != serverValue.MemberEnd(); ++srvIt) {
+                                        string key(srvIt->name.GetString());
+                                        if (key.compare("address") == 0 && srvIt->value.IsString()) {
+                                            server.address = srvIt->value.GetString();
+                                        } else if (key.compare("port") == 0 && srvIt->value.IsUint()) {
+                                            server.port = srvIt->value.GetUint();
+                                        } else if (key.compare("enabled") == 0 && srvIt->value.IsBool()) {
+                                            server.enabled = srvIt->value.GetBool();
+                                        }
+                                    }
+                                    servers.push_back(server);
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
-}
 
-void PrintConfiguration()
-{
-    printf("freq = %u\n", freq);
-    printf("sf = %hhu\n", sf);
-    for (vector<Server_t>::iterator it = servers.begin(); it != servers.end(); ++it)
+    void PrintConfiguration()
     {
-        printf("server: .address = %s; .port = %hu; .enable = %d\n", it->address.c_str(), it->port, it->enabled);
+        for (vector<Server_t>::iterator it = servers.begin(); it != servers.end(); ++it) {
+            printf("server: .address = %s; .port = %hu; .enable = %d\n", it->address.c_str(), it->port, it->enabled);
+        }
+        printf("Gateway Configuration\n");
+        printf("  %s (%s)\n  %s\n", platform, email, description);
+        printf("  Latitude=%.8f\n  Longitude=%.8f\n  Altitude=%d\n", lat,lon,alt);
+
     }
-}

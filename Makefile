@@ -1,32 +1,36 @@
 # single_chan_pkt_fwd
 # Single Channel LoRaWAN Gateway
 
-CC = g++
-CFLAGS = -std=c++11 -c -Wall -I include/
-LIBS = -lwiringPi
+CC      = g++
+CFLAGS  = -std=c++11 -Wall -Wextra -Wfatal-errors
+LDFLAGS = -lmpsse
+TARGET  = single_chan_pkt_fwd
 
-all: single_chan_pkt_fwd
+all: $(TARGET)
 
-single_chan_pkt_fwd: base64.o single_chan_pkt_fwd.o
-	$(CC) single_chan_pkt_fwd.o base64.o $(LIBS) -o single_chan_pkt_fwd
+$(TARGET): base64.o main.o spi.o
+	$(CC) main.o base64.o spi.o -o $(TARGET) $(LDFLAGS)
 
-single_chan_pkt_fwd.o: single_chan_pkt_fwd.cpp
-	$(CC) $(CFLAGS) single_chan_pkt_fwd.cpp
+main.o: main.cpp
+	$(CC) $(CFLAGS) -c main.cpp
 
 base64.o: base64.c
-	$(CC) $(CFLAGS) base64.c
+	$(CC) $(CFLAGS) -c base64.c
+
+spi.o: spi.c
+	$(CC) $(CFLAGS) -c spi.c
 
 clean:
-	rm *.o single_chan_pkt_fwd
+	rm -f *.o $(TARGET)
 
-install:
-	sudo cp -f ./single_chan_pkt_fwd.service /lib/systemd/system/
-	sudo systemctl enable single_chan_pkt_fwd.service
-	sudo systemctl daemon-reload
-	sudo systemctl start single_chan_pkt_fwd
-	sudo systemctl status single_chan_pkt_fwd -l
-
-uninstall:
-	sudo systemctl stop single_chan_pkt_fwd
-	sudo systemctl disable single_chan_pkt_fwd.service
-	sudo rm -f /lib/systemd/system/single_chan_pkt_fwd.service 
+#install:
+#	sudo cp -f ./single_chan_pkt_fwd.service /lib/systemd/system/
+#	sudo systemctl enable single_chan_pkt_fwd.service
+#	sudo systemctl daemon-reload
+#	sudo systemctl start single_chan_pkt_fwd
+#	sudo systemctl status single_chan_pkt_fwd -l
+#
+#uninstall:
+#	sudo systemctl stop single_chan_pkt_fwd
+#	sudo systemctl disable single_chan_pkt_fwd.service
+#	sudo rm -f /lib/systemd/system/single_chan_pkt_fwd.service 
