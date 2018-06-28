@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 int spi_init();
-void spi_rw();
 const char* spi_get_error();
 
 uint8_t ReadRegister(uint8_t reg);
