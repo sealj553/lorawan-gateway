@@ -21,12 +21,10 @@ const char* spi_get_error(){
 
 /*
  * Function to perform fast transfers in MPSSE.
- *
  * mpsse - libmpsse context pointer.
  * wdata - The data to write.
  * rdata - The destination buffer to read data into.
  * size  - The number of bytes to transfer.
- *
  * Returns MPSSE_OK on success, MPSSE_FAIL on failure.
  */
 //int FastTransfer(struct mpsse_context *mpsse, const char *wdata, char *rdata, size_t size)
@@ -44,11 +42,9 @@ uint8_t ReadRegister(uint8_t reg){
 
 /*
  * Function for performing fast writes in MPSSE.
- *
- * @mpsse - libmpsse context pointer.
- * @data  - The data to write.
- * @size  - The number of bytes to write.
- *
+ * mpsse - libmpsse context pointer.
+ * data  - The data to write.
+ * size  - The number of bytes to write.
  * Returns MPSSE_OK on success, MPSSE_FAIL on failure.
  */
 //int FastWrite(struct mpsse_context *mpsse, const char *data, size_t size)
