@@ -78,6 +78,7 @@ struct Server {
  * Default values, configure them in global_conf.json
  *
  *******************************************************************************/
+const char *interface = "eth0";
 
 // Set location in global_conf.json
 float lat = 0;
@@ -235,8 +236,7 @@ void SetupLoRa(){
     WriteRegister(REG_OPMODE, SX72_MODE_RX_CONTINUOS);
 }
 
-void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_sin)
-{
+void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_sin){
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
@@ -267,11 +267,11 @@ void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_
 
 void SendUdp(char *msg, int length){
     for(vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it){
-        if(it->enabled) {
+        if(it->enabled){
             si_other.sin_port = htons(it->port);
 
             SolveHostname(it->address.c_str(), it->port, &si_other);
-            if(sendto(s, (char *)msg, length, 0 , (struct sockaddr*) &si_other, slen) == -1){
+            if(sendto(s, (char *)msg, length, 0, (struct sockaddr*) &si_other, slen) == -1){
                 Die("sendto()");
             }
         }
@@ -285,15 +285,14 @@ void SendStat(){
     int stat_index = 0;
 
     /* pre-fill the data buffer with fixed fields */
-    status_report[0] = PROTOCOL_VERSION;
-    status_report[3] = PKT_PUSH_DATA;
-
-    status_report[4] = (unsigned char)ifr.ifr_hwaddr.sa_data[0];
-    status_report[5] = (unsigned char)ifr.ifr_hwaddr.sa_data[1];
-    status_report[6] = (unsigned char)ifr.ifr_hwaddr.sa_data[2];
-    status_report[7] = 0xFF;
-    status_report[8] = 0xFF;
-    status_report[9] = (unsigned char)ifr.ifr_hwaddr.sa_data[3];
+    status_report[0]  = PROTOCOL_VERSION;
+    status_report[3]  = PKT_PUSH_DATA;
+    status_report[4]  = (unsigned char)ifr.ifr_hwaddr.sa_data[0];
+    status_report[5]  = (unsigned char)ifr.ifr_hwaddr.sa_data[1];
+    status_report[6]  = (unsigned char)ifr.ifr_hwaddr.sa_data[2];
+    status_report[7]  = 0xFF;
+    status_report[8]  = 0xFF;
+    status_report[9]  = (unsigned char)ifr.ifr_hwaddr.sa_data[3];
     status_report[10] = (unsigned char)ifr.ifr_hwaddr.sa_data[4];
     status_report[11] = (unsigned char)ifr.ifr_hwaddr.sa_data[5];
 
@@ -357,14 +356,13 @@ void SendStat(){
     SendUdp(status_report, stat_index + json.size());
 }
 
-bool Receivepacket()
-{
+bool Receivepacket(){
     long int SNR;
     int rssicorr;
     bool ret = false;
 
     //if (digitalRead(dio0) == 1) {
-    //fix
+    //fix!
     if(1){
         char message[256];
         uint8_t length = 0;
@@ -486,11 +484,10 @@ bool Receivepacket()
     return ret;
 }
 
-int main()
-{
+int main(){
     struct timeval nowtime;
     uint32_t lasttime;
-    unsigned int led1_timer;
+    //unsigned int led1_timer;
 
     LoadConfiguration("global_conf.json");
     PrintConfiguration();
@@ -527,19 +524,18 @@ int main()
     SetupLoRa();
 
     // Prepare Socket connection
-    if ((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+    if((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
         Die("socket");
     }
 
-    memset((char *) &si_other, 0, sizeof(si_other));
+    memset((char*)&si_other, 0, sizeof(si_other));
     si_other.sin_family = AF_INET;
-
     ifr.ifr_addr.sa_family = AF_INET;
-    strncpy(ifr.ifr_name, "eth0", IFNAMSIZ-1);  // can we rely on eth0?
+    strncpy(ifr.ifr_name, interface, IFNAMSIZ - 1);
     ioctl(s, SIOCGIFHWADDR, &ifr);
 
     // ID based on MAC Adddress of eth0
-    printf( "Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",
+    printf("Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",
             (uint8_t)ifr.ifr_hwaddr.sa_data[0],
             (uint8_t)ifr.ifr_hwaddr.sa_data[1],
             (uint8_t)ifr.ifr_hwaddr.sa_data[2],
@@ -552,17 +548,16 @@ int main()
     printf("-----------------------------------\n");
 
     while(1) {
-
         // Packet received ?
-        if (Receivepacket()) {
+        if(Receivepacket()){
+            printf("Packet received!\n");
             // Led ON
             //if (Led1 != 0xff) {
             //  digitalWrite(Led1, 1);
             //}
-
             // start our Led blink timer, LED as been lit in Receivepacket
             //fix
-            led1_timer=millis();
+            //led1_timer = millis();
         }
 
         gettimeofday(&nowtime, NULL);
@@ -576,28 +571,27 @@ int main()
         }
 
         // Led timer in progress ?
-        if (led1_timer) {
+        /*if (led1_timer) {
             // Led timer expiration, Blink duration is 250ms
             if (millis() - led1_timer >= 250) {
                 // Stop Led timer
                 led1_timer = 0;
 
                 // Led OFF
-                //if (Led1 != 0xff) {
-                //    digitalWrite(Led1, 0);
-                //}
+                if (Led1 != 0xff) {
+                    digitalWrite(Led1, 0);
+                }
             }
-        }
+        }*/
 
         // Let some time to the OS
         delay(1);
     }
 
-    return (0);
+    return 0;
 }
 
-void LoadConfiguration(string configurationFile)
-{
+void LoadConfiguration(string configurationFile){
     FILE* p_file = fopen(configurationFile.c_str(), "r");
     char buffer[65536];
     FileReadStream fs(p_file, buffer, sizeof(buffer));
@@ -605,71 +599,70 @@ void LoadConfiguration(string configurationFile)
     Document document;
     document.ParseStream(fs);
 
-    for (Value::ConstMemberIterator fileIt = document.MemberBegin(); fileIt != document.MemberEnd(); ++fileIt) {
+    for(Value::ConstMemberIterator fileIt = document.MemberBegin(); fileIt != document.MemberEnd(); ++fileIt){
         string objectType(fileIt->name.GetString());
-        if (objectType.compare("SX127x_conf") == 0) {
+        if (objectType.compare("SX127x_conf") == 0){
             const Value& sx127x_conf = fileIt->value;
-            if (sx127x_conf.IsObject()) {
-                for (Value::ConstMemberIterator confIt = sx127x_conf.MemberBegin(); confIt != sx127x_conf.MemberEnd(); ++confIt) {
+            if(sx127x_conf.IsObject()){
+                for(Value::ConstMemberIterator confIt = sx127x_conf.MemberBegin(); confIt != sx127x_conf.MemberEnd(); ++confIt){
                     string key(confIt->name.GetString());
-                    if (key.compare("freq") == 0) {
+                    if(key.compare("freq") == 0){
                         freq = confIt->value.GetUint();
-                    } else if (key.compare("spread_factor") == 0) {
+                    } else if(key.compare("spread_factor") == 0){
                         sf = (SpreadingFactor)confIt->value.GetUint();
                     }
                 }
             }
 
-        } else if (objectType.compare("gateway_conf") == 0) {
+        } else if(objectType.compare("gateway_conf") == 0){
             const Value& gateway_conf = fileIt->value;
-            if (gateway_conf.IsObject()) {
-                for (Value::ConstMemberIterator confIt = gateway_conf.MemberBegin(); confIt != gateway_conf.MemberEnd(); ++confIt) {
+            if(gateway_conf.IsObject()){
+                for(Value::ConstMemberIterator confIt = gateway_conf.MemberBegin(); confIt != gateway_conf.MemberEnd(); ++confIt){
                     string memberType(confIt->name.GetString());
-                    if (memberType.compare("ref_latitude") == 0) {
+                    if(memberType.compare("ref_latitude") == 0){
                         lat = confIt->value.GetDouble();
-                    } else if (memberType.compare("ref_longitude") == 0) {
+                    } else if(memberType.compare("ref_longitude") == 0){
                         lon = confIt->value.GetDouble();
-                    } else if (memberType.compare("ref_altitude") == 0) {
+                    } else if(memberType.compare("ref_altitude") == 0){
                         alt = confIt->value.GetUint(); 
 
-                    } else if (memberType.compare("name") == 0 && confIt->value.IsString()) {
+                    } else if(memberType.compare("name") == 0 && confIt->value.IsString()){
                         string str = confIt->value.GetString();
                         strcpy(platform, str.length()<=24 ? str.c_str() : "name too long");
-                    } else if (memberType.compare("email") == 0 && confIt->value.IsString()) {
+                    } else if(memberType.compare("email") == 0 && confIt->value.IsString()){
                         string str = confIt->value.GetString();
                         strcpy(email, str.length()<=40 ? str.c_str() : "email too long");
-                    } else if (memberType.compare("desc") == 0 && confIt->value.IsString()) {
+                    } else if(memberType.compare("desc") == 0 && confIt->value.IsString()){
                         string str = confIt->value.GetString();
                         strcpy(description, str.length()<=64 ? str.c_str() : "description is too long");
 
-                    } else if (memberType.compare("servers") == 0) {
+                    } else if(memberType.compare("servers") == 0){
                         const Value& serverConf = confIt->value;
-                        if (serverConf.IsObject()) {
+                        if(serverConf.IsObject()){
                             const Value& serverValue = serverConf;
                             Server server;
-                            for (Value::ConstMemberIterator srvIt = serverValue.MemberBegin(); srvIt != serverValue.MemberEnd(); ++srvIt) {
+                            for(Value::ConstMemberIterator srvIt = serverValue.MemberBegin(); srvIt != serverValue.MemberEnd(); ++srvIt){
                                 string key(srvIt->name.GetString());
-                                if (key.compare("address") == 0 && srvIt->value.IsString()) {
+                                if(key.compare("address") == 0 && srvIt->value.IsString()){
                                     server.address = srvIt->value.GetString();
-                                } else if (key.compare("port") == 0 && srvIt->value.IsUint()) {
+                                } else if(key.compare("port") == 0 && srvIt->value.IsUint()){
                                     server.port = srvIt->value.GetUint();
-                                } else if (key.compare("enabled") == 0 && srvIt->value.IsBool()) {
+                                } else if(key.compare("enabled") == 0 && srvIt->value.IsBool()){
                                     server.enabled = srvIt->value.GetBool();
                                 }
                             }
                             servers.push_back(server);
-                        }
-                        else if (serverConf.IsArray()) {
-                            for (SizeType i = 0; i < serverConf.Size(); i++) {
+                        } else if(serverConf.IsArray()){
+                            for(SizeType i = 0; i < serverConf.Size(); ++i){
                                 const Value& serverValue = serverConf[i];
                                 Server server;
-                                for (Value::ConstMemberIterator srvIt = serverValue.MemberBegin(); srvIt != serverValue.MemberEnd(); ++srvIt) {
+                                for(Value::ConstMemberIterator srvIt = serverValue.MemberBegin(); srvIt != serverValue.MemberEnd(); ++srvIt){
                                     string key(srvIt->name.GetString());
-                                    if (key.compare("address") == 0 && srvIt->value.IsString()) {
+                                    if(key.compare("address") == 0 && srvIt->value.IsString()){
                                         server.address = srvIt->value.GetString();
-                                    } else if (key.compare("port") == 0 && srvIt->value.IsUint()) {
+                                    } else if(key.compare("port") == 0 && srvIt->value.IsUint()){
                                         server.port = srvIt->value.GetUint();
-                                    } else if (key.compare("enabled") == 0 && srvIt->value.IsBool()) {
+                                    } else if(key.compare("enabled") == 0 && srvIt->value.IsBool()){
                                         server.enabled = srvIt->value.GetBool();
                                     }
                                 }
@@ -683,13 +676,11 @@ void LoadConfiguration(string configurationFile)
     }
 }
 
-void PrintConfiguration()
-{
-    for (vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it) {
+void PrintConfiguration(){
+    for(vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it){
         printf("server: .address = %s; .port = %hu; .enable = %d\n", it->address.c_str(), it->port, it->enabled);
     }
     printf("Gateway Configuration\n");
     printf("  %s (%s)\n  %s\n", platform, email, description);
     printf("  Latitude=%.8f\n  Longitude=%.8f\n  Altitude=%d\n", lat,lon,alt);
-
 }
