@@ -72,5 +72,6 @@
 
 #define TX_BUFF_SIZE    2048
 #define STATUS_SIZE     1024
+#define BASE64_MAX_LENGTH 341
 
 #endif

@@ -15,6 +15,10 @@ int spi_init(){
     return (dev = MPSSE(SPI_DEV, TWELVE_MHZ, MSB)) != NULL && dev->open;
 }
 
+void spi_close(){
+    Close(dev);
+}
+
 const char* spi_get_error(){
     return ErrorString(dev);
 }

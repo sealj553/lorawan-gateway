@@ -13,6 +13,7 @@
 extern "C" {
 #include "base64.h"
 #include "spi.h"
+#include "gpio.h"
 
 #include <arpa/inet.h>
 #include <net/if.h>
@@ -42,12 +43,11 @@ using std::vector;
 
 using namespace rapidjson;
 
-#define BASE64_MAX_LENGTH 341
 
 bool sx1272 = false;
 
 struct sockaddr_in si_other;
-int s;
+int sock;
 int slen = sizeof(si_other);
 struct ifreq ifr;
 
@@ -126,14 +126,14 @@ void Die(const char *s){
 }
 
 bool ReceivePkt(char* payload, uint8_t* p_length){
-    // clear rxDone
+    //clear rxDone
     WriteRegister(REG_IRQ_FLAGS, 0x40);
 
     int irqflags = ReadRegister(REG_IRQ_FLAGS);
 
     cp_nb_rx_rcv++;
 
-    //  payload crc: 0x20
+    //payload crc: 0x20
     if((irqflags & 0x20) == 0x20) {
         printf("CRC error\n");
         WriteRegister(REG_IRQ_FLAGS, 0x20);
@@ -149,7 +149,7 @@ bool ReceivePkt(char* payload, uint8_t* p_length){
 
         WriteRegister(REG_FIFO_ADDR_PTR, currentAddr);
 
-        for(int i = 0; i < receivedCount; i++) {
+        for(int i = 0; i < receivedCount; i++){
             payload[i] = ReadRegister(REG_FIFO);
         }
     }
@@ -271,7 +271,7 @@ void SendUdp(char *msg, int length){
             si_other.sin_port = htons(it->port);
 
             SolveHostname(it->address.c_str(), it->port, &si_other);
-            if(sendto(s, (char *)msg, length, 0, (struct sockaddr*) &si_other, slen) == -1){
+            if(sendto(sock, (char*)msg, length, 0, (struct sockaddr*) &si_other, slen) == -1){
                 Die("sendto()");
             }
         }
@@ -499,7 +499,12 @@ int main(){
     //pinMode(RST, OUTPUT);
 
     if(!spi_init()){
-        fprintf(stderr, "Failed to initialize SPI: %s\n", spi_get_error());
+        fprintf(stderr, "Failed to initialize SPI interface: %s\n", spi_get_error());
+        exit(1);
+    }
+
+    if(!gpio_init()){
+        fprintf(stderr, "Failed to initialize GPIO interface: %s\n", gpio_get_error());
         exit(1);
     }
 
@@ -524,7 +529,7 @@ int main(){
     SetupLoRa();
 
     // Prepare Socket connection
-    if((s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
+    if((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
         Die("socket");
     }
 
@@ -532,7 +537,7 @@ int main(){
     si_other.sin_family = AF_INET;
     ifr.ifr_addr.sa_family = AF_INET;
     strncpy(ifr.ifr_name, interface, IFNAMSIZ - 1);
-    ioctl(s, SIOCGIFHWADDR, &ifr);
+    ioctl(sock, SIOCGIFHWADDR, &ifr);
 
     // ID based on MAC Adddress of eth0
     printf("Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",

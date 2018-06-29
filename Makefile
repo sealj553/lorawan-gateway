@@ -11,8 +11,8 @@ TARGET   = single_chan_pkt_fwd
 
 all: $(TARGET)
 
-$(TARGET): base64.o main.o spi.o mpsse.o fast.o support.o
-	$(CXX) main.o base64.o spi.o mpsse.o fast.o support.o -o $(TARGET) $(LDFLAGS)
+$(TARGET): base64.o main.o spi.o gpio.o mpsse.o fast.o support.o
+	$(CXX) main.o base64.o spi.o gpio.o mpsse.o fast.o support.o -o $(TARGET) $(LDFLAGS)
 
 mpsse.o: libmpsse/mpsse.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c libmpsse/mpsse.c
@@ -31,6 +31,9 @@ base64.o: base64.c
 
 spi.o: spi.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c spi.c
+
+gpio.o: gpio.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c gpio.c
 
 clean:
 	rm -f *.o $(TARGET)
