@@ -592,7 +592,7 @@ int main(){
 }
 
 void LoadConfiguration(string configurationFile){
-    FILE* p_file = fopen(configurationFile.c_str(), "r");
+    FILE *p_file = fopen(configurationFile.c_str(), "r");
     char buffer[65536];
     FileReadStream fs(p_file, buffer, sizeof(buffer));
 
@@ -601,7 +601,7 @@ void LoadConfiguration(string configurationFile){
 
     for(Value::ConstMemberIterator fileIt = document.MemberBegin(); fileIt != document.MemberEnd(); ++fileIt){
         string objectType(fileIt->name.GetString());
-        if (objectType.compare("SX127x_conf") == 0){
+        if (objectType.compare("radio_conf") == 0){
             const Value& sx127x_conf = fileIt->value;
             if(sx127x_conf.IsObject()){
                 for(Value::ConstMemberIterator confIt = sx127x_conf.MemberBegin(); confIt != sx127x_conf.MemberEnd(); ++confIt){
@@ -613,7 +613,6 @@ void LoadConfiguration(string configurationFile){
                     }
                 }
             }
-
         } else if(objectType.compare("gateway_conf") == 0){
             const Value& gateway_conf = fileIt->value;
             if(gateway_conf.IsObject()){
@@ -677,10 +676,11 @@ void LoadConfiguration(string configurationFile){
 }
 
 void PrintConfiguration(){
-    for(vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it){
-        printf("server: .address = %s; .port = %hu; .enable = %d\n", it->address.c_str(), it->port, it->enabled);
+    for(auto server : servers){
+        printf("server: .address = %s; .port = %hu; .enable = %d\n", server.address.c_str(), server.port, server.enabled);
     }
-    printf("Gateway Configuration\n");
-    printf("  %s (%s)\n  %s\n", platform, email, description);
-    printf("  Latitude=%.8f\n  Longitude=%.8f\n  Altitude=%d\n", lat,lon,alt);
+    printf("Gateway Configuration:\n");
+    printf("  %s (%s), %s\n", platform, email, description);
+    printf("  lat=%.8f lon=%.8f alt=%d\n", lat, lon, alt);
+    printf("  freq=%d, sf=%d\n", freq, sf);
 }

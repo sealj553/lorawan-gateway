@@ -1,5 +1,5 @@
 {
-    "SX127x_conf":
+    "radio_conf":
     {
         "freq": 916800000,
         "spread_factor": 7
