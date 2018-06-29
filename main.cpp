@@ -178,7 +178,7 @@ void SetupLoRa(){
 
     if (version == 0x22) {
         // sx1272
-        printf("SX1272 detected, starting.\n");
+        printf("SX1272 detected\n");
         sx1272 = true;
     } else {
         // sx1276?
@@ -186,7 +186,7 @@ void SetupLoRa(){
         version = ReadRegister(REG_VERSION);
         if (version == 0x12) {
             // sx1276
-            printf("SX1276 detected, starting.\n");
+            printf("SX1276 detected\n");
             sx1272 = false;
         } else {
             printf("Transceiver version 0x%02X\n", version);
@@ -677,10 +677,10 @@ void LoadConfiguration(string configurationFile){
 
 void PrintConfiguration(){
     for(auto server : servers){
-        printf("server: .address = %s; .port = %hu; .enable = %d\n", server.address.c_str(), server.port, server.enabled);
+        printf("server: address = %s; port = %hu; enable = %d\n", server.address.c_str(), server.port, server.enabled);
     }
     printf("Gateway Configuration:\n");
-    printf("  %s (%s), %s\n", platform, email, description);
-    printf("  lat=%.8f lon=%.8f alt=%d\n", lat, lon, alt);
+    printf("  platform=%s, email=%s, desc=%s\n", platform, email, description);
+    printf("  lat=%.8f, lon=%.8f, alt=%d\n", lat, lon, alt);
     printf("  freq=%d, sf=%d\n", freq, sf);
 }
