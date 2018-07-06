@@ -3,7 +3,7 @@
 
 CC       = gcc
 CXX      = g++
-LDFLAGS  = -lftdi
+LDFLAGS  = -lftdi -ljansson
 CPPFLAGS = -std=c11
 CFLAGS   = -Wall -Wextra -Wfatal-errors
 CXXFLAGS = -std=c++11

@@ -16,6 +16,8 @@ extern "C" {
 #include "spi.h"
 #include "gpio.h"
 
+#include <jansson.h>
+
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
@@ -25,8 +27,8 @@ extern "C" {
 #include <netdb.h>
 }
 
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
+//#include <rapidjson/stringbuffer.h>
+//#include <rapidjson/writer.h>
 
 #include <cstdlib>
 #include <cstdint>
@@ -40,7 +42,7 @@ extern "C" {
 using std::string;
 using std::vector;
 
-using namespace rapidjson;
+//using namespace rapidjson;
 
 bool sx1272 = false;
 
@@ -65,13 +67,10 @@ struct Server {
 };
 
 //Servers
-//vector<Server> servers = { Server("router.us.thethings.network", 1700) };
 const int numservers = 1;
 Server servers[] = { Server("router.us.thethings.network", 1700) };
 
 // #############################################
-
-//void LoadConfiguration(string filename);
 
 void PrintConfiguration();
 
@@ -277,43 +276,30 @@ void SendStat(){
     time_t t = time(NULL);
     strftime(stat_timestamp, sizeof stat_timestamp, "%F %T %Z", gmtime(&t));
 
-    // Build JSON object.
-    StringBuffer sb;
-    Writer<StringBuffer> writer(sb);
-    writer.StartObject();
-    writer.String("stat");
-    writer.StartObject();
-    writer.String("time");
-    writer.String(stat_timestamp);
-    writer.String("lati");
-    writer.Double(lat);
-    writer.String("long");
-    writer.Double(lon);
-    writer.String("alti");
-    writer.Int(alt);
-    writer.String("rxnb");
-    writer.Uint(cp_nb_rx_rcv);
-    writer.String("rxok");
-    writer.Uint(cp_nb_rx_ok);
-    writer.String("rxfw");
-    writer.Uint(cp_up_pkt_fwd);
-    writer.String("ackr");
-    writer.Double(0);
-    writer.String("dwnb");
-    writer.Uint(0);
-    writer.String("txnb");
-    writer.Uint(0);
-    writer.String("pfrm");
-    writer.String(platform);
-    writer.String("mail");
-    writer.String(email);
-    writer.String("desc");
-    writer.String(description);
-    writer.EndObject();
-    writer.EndObject();
+    //TODO: finish this format string
+    //TODO: add object at beginning
+    json_t *root = json_pack("{s:s,s:i ",
+            "time", stat_timestamp, //string
+            "lati", lat, //double
+            "long", lon, //double
+            "alti", alt, //double
+            "rxnb", cp_nb_rx_rcv, //uint
+            "rxok", cp_nb_rx_ok, //uint
+            "rxfw", cp_up_pkt_fwd, //uint
+            "ackr", 0, //double
+            "dwnb", 0, //uint
+            "txnb", 0, //uint
+            "pfrm", platform, //string
+            "mail", email, //string
+            "desc", description); //string
 
-    string json = sb.GetString();
-    //printf("stat update: %s\n", json.c_str());
+    if(!root){
+        printf("Unable to create json object!\n");    
+    }
+
+    const char *json = json_string_value(root);
+    printf("stat update: %s\n", json);
+
     printf("stat update: %s", stat_timestamp);
     if (cp_nb_rx_ok_tot==0) {
         printf(" no packet received yet\n");
@@ -322,8 +308,8 @@ void SendStat(){
     }
 
     // Build and send message.
-    memcpy(status_report + 12, json.c_str(), json.size());
-    SendUdp(status_report, stat_index + json.size());
+    memcpy(status_report + 12, json, json_string_length(root));
+    SendUdp(status_report, stat_index + json_string_length(root));
 }
 
 bool Receivepacket(){
@@ -379,12 +365,12 @@ bool Receivepacket(){
             //*(uint32_t *)(buff_up + 4) = net_mac_h; 
             //*(uint32_t *)(buff_up + 8) = net_mac_l;
 
-            buff_up[4] = (uint8_t)ifr.ifr_hwaddr.sa_data[0];
-            buff_up[5] = (uint8_t)ifr.ifr_hwaddr.sa_data[1];
-            buff_up[6] = (uint8_t)ifr.ifr_hwaddr.sa_data[2]; 
-            buff_up[7] = 0xFF;
-            buff_up[8] = 0xFF;
-            buff_up[9] = (uint8_t)ifr.ifr_hwaddr.sa_data[3];
+            buff_up[4]  = (uint8_t)ifr.ifr_hwaddr.sa_data[0];
+            buff_up[5]  = (uint8_t)ifr.ifr_hwaddr.sa_data[1];
+            buff_up[6]  = (uint8_t)ifr.ifr_hwaddr.sa_data[2]; 
+            buff_up[7]  = 0xFF;
+            buff_up[8]  = 0xFF;
+            buff_up[9]  = (uint8_t)ifr.ifr_hwaddr.sa_data[3];
             buff_up[10] = (uint8_t)ifr.ifr_hwaddr.sa_data[4];
             buff_up[11] = (uint8_t)ifr.ifr_hwaddr.sa_data[5];
 
@@ -404,49 +390,40 @@ bool Receivepacket(){
             char b64[BASE64_MAX_LENGTH];
             bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
 
-            // Build JSON object.
-            StringBuffer sb;
-            Writer<StringBuffer> writer(sb);
-            writer.StartObject();
-            writer.String("rxpk");
-            writer.StartArray();
-            writer.StartObject();
-            writer.String("tmst");
-            writer.Uint(tmst);
-            writer.String("freq");
-            writer.Double((double)freq / 1000000);
-            writer.String("chan");
-            writer.Uint(0);
-            writer.String("rfch");
-            writer.Uint(0);
-            writer.String("stat");
-            writer.Uint(1);
-            writer.String("modu");
-            writer.String("LORA");
-            writer.String("datr");
-            char datr[] = "SFxxBWxxx";
-            snprintf(datr, strlen(datr) + 1, "SF%hhuBW%hu", sf, bw);
-            writer.String(datr);
-            writer.String("codr");
-            writer.String("4/5");
-            writer.String("rssi");
-            writer.Int(ReadRegister(0x1A) - rssicorr);
-            writer.String("lsnr");
-            writer.Double(SNR); // %li.
-            writer.String("size");
-            writer.Uint(length);
-            writer.String("data");
-            writer.String(b64);
-            writer.EndObject();
-            writer.EndArray();
-            writer.EndObject();
 
-            string json = sb.GetString();
-            printf("rxpk update: %s\n", json.c_str());
+            json_t *js_obj = json_object();
 
-            // Build and send message.
-            memcpy(buff_up + 12, json.c_str(), json.size());
-            SendUdp(buff_up, buff_index + json.size());
+            json_object_set(js_obj, "", json_pack(
+                        "tmst", tmst, //uint
+                        "freq", (double)freq/1000000, //double
+                        "chan", 0, //uint
+                        "rfch", 0, //uint
+                        "stat", 1, //uint
+                        "modu", "LORA", "datr", //??
+                        "codr", "4/5", //string
+                        "rssi", ReadRegister(0x1A) - rssicorr, //int
+                        "lsnr", SNR, //double
+                        "size", length, //uint
+                        "data", b64)); //string
+
+            json_t *js_arr = json_array();
+            json_array_append(js_arr, js_obj);
+
+            json_t *js_obj2 = json_object();
+            json_object_set(js_obj2, "rxpk", js_arr);
+
+            //TODO: add json stuff here
+            //TODO: finish format specifier and params
+            json_t *root = json_pack("", "rxpk", js_arr);
+
+
+
+            ////string json = sb.GetString();
+            ////printf("rxpk update: %s\n", json.c_str());
+
+            ////// Build and send message.
+            ////memcpy(buff_up + 12, json.c_str(), json.size());
+            ////SendUdp(buff_up, buff_index + json.size());
 
             fflush(stdout);
         }
