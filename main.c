@@ -47,22 +47,6 @@ void SendUdp(char *msg, int length);
 void SendStat();
 bool Receivepacket();
 
-long millis(void){
-    struct timespec time;
-    clock_gettime(CLOCK_MONOTONIC, &time);
-    return time.tv_nsec / 1000000L;
-}
-
-void delay(unsigned int ms){
-    static struct timespec time;
-    time.tv_sec = ms / 1000;
-    if(time.tv_sec > 0){
-        ms -= time.tv_sec * 1000;
-    }
-    time.tv_nsec = ms * 1000000L;
-    nanosleep(&time, NULL);
-}
-
 void Die(const char *s){
     perror(s);
     exit(1);
@@ -390,8 +374,6 @@ void PrintConfiguration(){
 }
 
 int main(){
-    struct timeval nowtime;
-    uint32_t lasttime;
     //unsigned int led1_timer;
 
     PrintConfiguration();
@@ -457,6 +439,7 @@ int main(){
     printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
     printf("-----------------------------------\n");
 
+    uint32_t lasttime;
     while(1){
         //Packet received ?
         if(Receivepacket()){
@@ -470,6 +453,7 @@ int main(){
             //led1_timer = millis();
         }
 
+        struct timeval nowtime;
         gettimeofday(&nowtime, NULL);
         uint32_t nowseconds = nowtime.tv_sec;
         if(nowseconds - lasttime >= 30){
@@ -497,6 +481,4 @@ int main(){
         // Let some time to the OS
         delay(1);
     }
-
-    return 0;
 }
