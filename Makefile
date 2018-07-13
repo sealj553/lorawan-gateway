@@ -4,7 +4,7 @@
 CC       = gcc
 #CXX      = g++
 LDFLAGS  = -lftdi -ljansson
-CPPFLAGS = -std=c11
+CPPFLAGS = -std=gnu11
 CFLAGS   = -Wall -Wextra -Wfatal-errors
 #CXXFLAGS = -std=c++11
 TARGET   = single_chan_pkt_fwd
@@ -12,8 +12,7 @@ TARGET   = single_chan_pkt_fwd
 all: $(TARGET)
 
 $(TARGET): base64.o main.o spi.o gpio.o mpsse.o fast.o support.o
-	#$(CXX) main.o base64.o spi.o gpio.o mpsse.o fast.o support.o -o $(TARGET) $(LDFLAGS)
-	$(CCX) main.o base64.o spi.o gpio.o mpsse.o fast.o support.o -o $(TARGET) $(LDFLAGS)
+	$(CC) main.o base64.o spi.o gpio.o mpsse.o fast.o support.o -o $(TARGET) $(LDFLAGS)
 
 mpsse.o: libmpsse/mpsse.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c libmpsse/mpsse.c
@@ -23,9 +22,6 @@ fast.o: libmpsse/fast.c
 
 support.o: libmpsse/support.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c libmpsse/support.c
-
-#main.o: main.cpp
-#	$(CXX) $(CXXFLAGS) $(CFLAGS) -c main.cpp
 
 main.o: main.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c main.c

@@ -18,10 +18,6 @@
 #include "support.h"
 #include "config.h"
 
-//fix stupid compiler warning about implicit declaration
-void usleep(long time);
-char* strdup(char*);
-
 /* List of known FT2232-based devices */
 struct vid_pid supported_devices[] = { 
     { 0x0403, 0x6010, "FT2232 Future Technology Devices International, Ltd" }, 

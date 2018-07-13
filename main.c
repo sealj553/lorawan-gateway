@@ -1,5 +1,8 @@
 //#define _POSIX_C_SOURCE 199309L
 #define _POSIX_C_SOURCE 200112L
+//#define __USE_MISC
+//#define __UAPI_DEF_IF_IFREQ
+#define _GNU_SOURCE
 
 #include "registers.h"
 #include "config.h"
@@ -17,7 +20,6 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <netdb.h>
-
 
 #include <stdlib.h>
 #include <stdint.h>
