@@ -1,7 +1,4 @@
-//#define _POSIX_C_SOURCE 199309L
 #define _POSIX_C_SOURCE 200112L
-//#define __USE_MISC
-//#define __UAPI_DEF_IF_IFREQ
 #define _GNU_SOURCE
 
 #include "registers.h"
@@ -28,14 +25,6 @@
 #include <time.h>
 #include <ctype.h>
 
-#define bool int
-#define true 1
-#define false 0
-
-/***************/
-
-bool sx1272 = false;
-
 struct sockaddr_in si_other;
 int sock;
 int slen = sizeof(si_other);
@@ -48,17 +37,16 @@ uint32_t cp_nb_rx_bad;
 uint32_t cp_nb_rx_nocrc;
 uint32_t cp_up_pkt_fwd;
 
-typedef struct server {
-    const char *address;
-    uint16_t port;
-} Server;
-
-//Servers
-const int numservers = 1;
-Server servers[]= { {"router.us.thethings.network", 1700} };
-
-// #############################################
-
+void PrintConfiguration();
+long millis(void);
+void delay(unsigned int ms);
+void Die(const char *s);
+bool ReceivePkt(char* payload, uint8_t* p_length);
+void SetupLoRa();
+void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_sin);
+void SendUdp(char *msg, int length);
+void SendStat();
+bool Receivepacket();
 void PrintConfiguration();
 
 long millis(void){
@@ -417,6 +405,16 @@ bool Receivepacket(){
     return ret;
 }
 
+void PrintConfiguration(){
+    for(int i = 0; i < numservers; ++i){
+        printf("server: address = %s; port = %hu\n", servers[i].address, servers[i].port);
+    }
+    printf("Gateway Configuration:\n");
+    printf("  platform=%s, email=%s, desc=%s\n", platform, email, description);
+    printf("  lat=%.8f, lon=%.8f, alt=%d\n", lat, lon, alt);
+    printf("  freq=%d, sf=%d\n", freq, sf);
+}
+
 int main(){
     struct timeval nowtime;
     uint32_t lasttime;
@@ -526,14 +524,4 @@ int main(){
     }
 
     return 0;
-}
-
-void PrintConfiguration(){
-    for(int i = 0; i < numservers; ++i){
-        printf("server: address = %s; port = %hu\n", servers[i].address, servers[i].port);
-    }
-    printf("Gateway Configuration:\n");
-    printf("  platform=%s, email=%s, desc=%s\n", platform, email, description);
-    printf("  lat=%.8f, lon=%.8f, alt=%d\n", lat, lon, alt);
-    printf("  freq=%d, sf=%d\n", freq, sf);
 }
