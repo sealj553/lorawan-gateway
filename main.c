@@ -27,7 +27,6 @@
 
 struct sockaddr_in si_other;
 int sock;
-int slen = sizeof(si_other);
 struct ifreq ifr;
 
 uint32_t cp_nb_rx_rcv;
@@ -120,7 +119,11 @@ void SetupLoRa(){
 
     uint8_t version = ReadRegister(REG_VERSION);
 
-    if (version == 0x22) {
+    //TODO: remove this
+    version = 0x12;
+    //
+
+    /*if(version == 0x22){
         // sx1272
         printf("SX1272 detected\n");
         sx1272 = true;
@@ -128,7 +131,7 @@ void SetupLoRa(){
         // sx1276?
         //digitalWrite(RST, LOW);
         version = ReadRegister(REG_VERSION);
-        if (version == 0x12) {
+        if(version == 0x12){
             // sx1276
             printf("SX1276 detected\n");
             sx1272 = false;
@@ -136,7 +139,7 @@ void SetupLoRa(){
             printf("Transceiver version 0x%02X\n", version);
             Die("Unrecognized transceiver");
         }
-    }
+    }*/
 
     WriteRegister(REG_OPMODE, SX72_MODE_SLEEP);
 
@@ -148,15 +151,15 @@ void SetupLoRa(){
 
     WriteRegister(REG_SYNC_WORD, 0x34); // LoRaWAN public sync word
 
-    if (sx1272) {
-        if (sf == 11 || sf == 12) {
+    if(sx1272){
+        if (sf == 11 || sf == 12){
             WriteRegister(REG_MODEM_CONFIG, 0x0B);
         } else {
             WriteRegister(REG_MODEM_CONFIG, 0x0A);
         }
         WriteRegister(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
     } else {
-        if (sf == 11 || sf == 12) {
+        if(sf == 11 || sf == 12){
             WriteRegister(REG_MODEM_CONFIG3, 0x0C);
         } else {
             WriteRegister(REG_MODEM_CONFIG3, 0x04);
@@ -165,7 +168,7 @@ void SetupLoRa(){
         WriteRegister(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
     }
 
-    if (sf == 10 || sf == 11 || sf == 12) {
+    if(sf == 10 || sf == 11 || sf == 12){
         WriteRegister(REG_SYMB_TIMEOUT_LSB, 0x05);
     } else {
         WriteRegister(REG_SYMB_TIMEOUT_LSB, 0x08);
@@ -182,7 +185,6 @@ void SetupLoRa(){
 
 void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_sin){
     struct addrinfo hints;
-    //memset(&hints, 0, sizeof(addrinfo));
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
@@ -195,13 +197,13 @@ void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_
 
     //Resolve the domain name into a list of addresses
     int error = getaddrinfo(p_hostname, service, &hints, &p_result);
-    if (error != 0) {
+    if(error != 0){
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
         exit(EXIT_FAILURE);
     }
 
     //Loop over all returned results
-    for (struct addrinfo *p_rp = p_result; p_rp != NULL; p_rp = p_rp->ai_next) {
+    for(struct addrinfo *p_rp = p_result; p_rp != NULL; p_rp = p_rp->ai_next) {
         struct sockaddr_in *p_saddr = (struct sockaddr_in*)p_rp->ai_addr;
         //printf("%s solved to %s\n", p_hostname, inet_ntoa(p_saddr->sin_addr));
         p_sin->sin_addr = p_saddr->sin_addr;
@@ -215,7 +217,7 @@ void SendUdp(char *msg, int length){
         si_other.sin_port = htons(servers[i].port);
 
         SolveHostname(servers[i].address, servers[i].port, &si_other);
-        if(sendto(sock, (char*)msg, length, 0, (struct sockaddr*) &si_other, slen) == -1){
+        if(sendto(sock, (char*)msg, length, 0, (struct sockaddr*) &si_other, sizeof(si_other)) == -1){
             Die("sendto()");
         }
     }
@@ -250,6 +252,7 @@ void SendStat(){
     time_t t = time(NULL);
     strftime(stat_timestamp, sizeof stat_timestamp, "%F %T %Z", gmtime(&t));
 
+    //compare to original implementation to see if this actually works
     //TODO: finish this format string
     //TODO: add object at beginning
     json_t *root = json_pack("{s:s,s:i ",
@@ -292,16 +295,16 @@ bool Receivepacket(){
     bool ret = false;
 
     //if (digitalRead(dio0) == 1) {
-    //fix!
+    //TODO:fix this
     if(1){
         char message[256];
         uint8_t length = 0;
-        if (ReceivePkt(message, &length)) {
+        if(ReceivePkt(message, &length)){
             // OK got one
             ret = true;
 
             uint8_t value = ReadRegister(REG_PKT_SNR_VALUE);
-            if (value & 0x80) { // The SNR sign bit is 1
+            if(value & 0x80){ // The SNR sign bit is 1
                 // Invert and divide by 4
                 value = ((~value + 1) & 0xFF) >> 2;
                 SNR = -value;
@@ -316,7 +319,7 @@ bool Receivepacket(){
             printf("RSSI: %d, ", ReadRegister(0x1B) - rssicorr);
             printf("SNR: %li, ", SNR);
             printf("Length: %hhu Message:'", length);
-            for(int i=0; i<length; ++i){
+            for(int i = 0; i < length; ++i){
                 char c = (char) message[i];
                 printf("%c", isprint(c) ? c : '.');
             }
@@ -358,13 +361,13 @@ bool Receivepacket(){
             // TODO: tmst can jump is time is (re)set, not good.
             struct timeval now;
             gettimeofday(&now, NULL);
-            uint32_t tmst = (uint32_t)(now.tv_sec * 1000000 + now.tv_usec);
+            uint32_t tmst = now.tv_sec * 1000000 + now.tv_usec;
 
             // Encode payload.
             char b64[BASE64_MAX_LENGTH];
-            bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
+            bin_to_b64(message, length, b64, BASE64_MAX_LENGTH);
 
-
+            //TODO:fix this
             json_t *js_obj = json_object();
 
             json_object_set(js_obj, "", json_pack(
@@ -428,7 +431,8 @@ int main(){
     //pinMode(dio0, INPUT);
     //pinMode(RST, OUTPUT);
 
-    if(!spi_init()){
+    //TODO:fix this
+    /*if(!spi_init()){
         fprintf(stderr, "Failed to initialize SPI interface: %s\n", spi_get_error());
         exit(1);
     }
@@ -436,7 +440,7 @@ int main(){
     if(!gpio_init()){
         fprintf(stderr, "Failed to initialize GPIO interface: %s\n", gpio_get_error());
         exit(1);
-    }
+    }*/
 
     // LED ?
     //if (Led1 != 0xff) {
@@ -463,7 +467,7 @@ int main(){
         Die("socket");
     }
 
-    memset((char*)&si_other, 0, sizeof(si_other));
+    memset(&si_other, 0, sizeof(si_other));
     si_other.sin_family = AF_INET;
     ifr.ifr_addr.sa_family = AF_INET;
     strncpy(ifr.ifr_name, interface, IFNAMSIZ - 1);

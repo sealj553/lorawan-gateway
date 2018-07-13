@@ -5,7 +5,7 @@ CC       = gcc
 #CXX      = g++
 LDFLAGS  = -lftdi -ljansson
 CPPFLAGS = -std=gnu11
-CFLAGS   = -Wall -Wextra -Wfatal-errors
+CFLAGS   = -Wall -Wextra -Wfatal-errors -g
 #CXXFLAGS = -std=c++11
 TARGET   = single_chan_pkt_fwd
 
