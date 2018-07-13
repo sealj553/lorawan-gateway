@@ -25,8 +25,6 @@ static const uint16_t bw = 125;
 static const uint32_t freq = 916800000;
 static const int sf = 7;
 
-static bool sx1272 = false;
-
 //servers
 static const int numservers = 2;
 static Server servers[]= { {"router.us.thethings.network", 1700},

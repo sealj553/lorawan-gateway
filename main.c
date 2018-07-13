@@ -46,7 +46,6 @@ void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_
 void SendUdp(char *msg, int length);
 void SendStat();
 bool Receivepacket();
-void PrintConfiguration();
 
 long millis(void){
     struct timespec time;
@@ -83,8 +82,8 @@ bool ReceivePkt(char* payload, uint8_t* p_length){
         WriteRegister(REG_IRQ_FLAGS, 0x20);
         return false;
     } else {
-        cp_nb_rx_ok++;
-        cp_nb_rx_ok_tot++;
+        ++cp_nb_rx_ok;
+        ++cp_nb_rx_ok_tot;
 
         uint8_t currentAddr = ReadRegister(REG_FIFO_RX_CURRENT_ADDR);
         uint8_t receivedCount = ReadRegister(REG_RX_NB_BYTES);
@@ -118,55 +117,30 @@ void SetupLoRa(){
     //delay(100);
 
     uint8_t version = ReadRegister(REG_VERSION);
-
-    //TODO: remove this
-    version = 0x12;
-    //
-
-    /*if(version == 0x22){
-        // sx1272
-        printf("SX1272 detected\n");
-        sx1272 = true;
+    if(version != 0x12){ 
+        printf("Transceiver version 0x%02X\n", version);
+        Die("Unrecognized transceiver");
     } else {
-        // sx1276?
-        //digitalWrite(RST, LOW);
-        version = ReadRegister(REG_VERSION);
-        if(version == 0x12){
-            // sx1276
-            printf("SX1276 detected\n");
-            sx1272 = false;
-        } else {
-            printf("Transceiver version 0x%02X\n", version);
-            Die("Unrecognized transceiver");
-        }
-    }*/
+        printf("SX1276 detected\n");
+    }
 
     WriteRegister(REG_OPMODE, SX72_MODE_SLEEP);
 
     // set frequency
     uint64_t frf = ((uint64_t)freq << 19) / 32000000;
-    WriteRegister(REG_FRF_MSB, (uint8_t)(frf >> 16));
-    WriteRegister(REG_FRF_MID, (uint8_t)(frf >> 8));
-    WriteRegister(REG_FRF_LSB, (uint8_t)(frf >> 0));
+    WriteRegister(REG_FRF_MSB, frf >> 16);
+    WriteRegister(REG_FRF_MID, frf >> 8);
+    WriteRegister(REG_FRF_LSB, frf >> 0);
 
     WriteRegister(REG_SYNC_WORD, 0x34); // LoRaWAN public sync word
 
-    if(sx1272){
-        if (sf == 11 || sf == 12){
-            WriteRegister(REG_MODEM_CONFIG, 0x0B);
-        } else {
-            WriteRegister(REG_MODEM_CONFIG, 0x0A);
-        }
-        WriteRegister(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
+    if(sf == 11 || sf == 12){
+        WriteRegister(REG_MODEM_CONFIG3, 0x0C);
     } else {
-        if(sf == 11 || sf == 12){
-            WriteRegister(REG_MODEM_CONFIG3, 0x0C);
-        } else {
-            WriteRegister(REG_MODEM_CONFIG3, 0x04);
-        }
-        WriteRegister(REG_MODEM_CONFIG, 0x72);
-        WriteRegister(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
+        WriteRegister(REG_MODEM_CONFIG3, 0x04);
     }
+    WriteRegister(REG_MODEM_CONFIG, 0x72);
+    WriteRegister(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
 
     if(sf == 10 || sf == 11 || sf == 12){
         WriteRegister(REG_SYMB_TIMEOUT_LSB, 0x05);
@@ -313,7 +287,7 @@ bool Receivepacket(){
                 SNR = ( value & 0xFF ) >> 2;
             }
 
-            rssicorr = sx1272 ? 139 : 157;
+            rssicorr = 157;
 
             printf("Packet RSSI: %d, ", ReadRegister(0x1A) - rssicorr);
             printf("RSSI: %d, ", ReadRegister(0x1B) - rssicorr);
@@ -365,7 +339,7 @@ bool Receivepacket(){
 
             // Encode payload.
             char b64[BASE64_MAX_LENGTH];
-            bin_to_b64(message, length, b64, BASE64_MAX_LENGTH);
+            bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
 
             //TODO:fix this
             json_t *js_obj = json_object();
@@ -433,14 +407,14 @@ int main(){
 
     //TODO:fix this
     /*if(!spi_init()){
-        fprintf(stderr, "Failed to initialize SPI interface: %s\n", spi_get_error());
-        exit(1);
-    }
+      fprintf(stderr, "Failed to initialize SPI interface: %s\n", spi_get_error());
+      exit(1);
+      }
 
-    if(!gpio_init()){
-        fprintf(stderr, "Failed to initialize GPIO interface: %s\n", gpio_get_error());
-        exit(1);
-    }*/
+      if(!gpio_init()){
+      fprintf(stderr, "Failed to initialize GPIO interface: %s\n", gpio_get_error());
+      exit(1);
+      }*/
 
     // LED ?
     //if (Led1 != 0xff) {
