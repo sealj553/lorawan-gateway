@@ -7,6 +7,7 @@
 #include "base64.h"
 #include "spi.h"
 #include "gpio.h"
+#include "time_util.h"
 
 #include <jansson.h>
 
@@ -37,8 +38,6 @@ uint32_t cp_nb_rx_nocrc;
 uint32_t cp_up_pkt_fwd;
 
 void PrintConfiguration();
-long millis(void);
-void delay(unsigned int ms);
 void Die(const char *s);
 bool ReceivePkt(char* payload, uint8_t* p_length);
 void SetupLoRa();
@@ -57,7 +56,6 @@ bool ReceivePkt(char *payload, uint8_t *p_length){
     WriteRegister(REG_IRQ_FLAGS, 0x40);
 
     int irqflags = ReadRegister(REG_IRQ_FLAGS);
-
     cp_nb_rx_rcv++;
 
     //payload crc: 0x20
@@ -253,7 +251,7 @@ bool Receivepacket(){
     //if (digitalRead(dio0) == 1) {
     //TODO:fix this
     if(1){
-    long int SNR;
+        long int SNR;
         char message[256];
         uint8_t length = 0;
         if(ReceivePkt(message, &length)){
@@ -276,8 +274,7 @@ bool Receivepacket(){
             printf("SNR: %li, ", SNR);
             printf("Length: %hhu Message:'", length);
             for(int i = 0; i < length; ++i){
-                char c = (char) message[i];
-                printf("%c", isprint(c) ? c : '.');
+                printf("%c", isprint(message[i]) ? message[i] : '.');
             }
             printf("'\n");
 
