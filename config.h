@@ -1,9 +1,9 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include <cstdint>
+#include <stdint.h>
 
-const static char *interface = "eth0";
+static const char *interface = "eth0";
 
 //Set location in global_conf.json
 static const float lat = 42.36339;
