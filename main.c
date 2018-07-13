@@ -68,7 +68,7 @@ void Die(const char *s){
     exit(1);
 }
 
-bool ReceivePkt(char* payload, uint8_t* p_length){
+bool ReceivePkt(char *payload, uint8_t *p_length){
     //clear rxDone
     WriteRegister(REG_IRQ_FLAGS, 0x40);
 
@@ -132,7 +132,7 @@ void SetupLoRa(){
     WriteRegister(REG_FRF_MID, frf >> 8);
     WriteRegister(REG_FRF_LSB, frf >> 0);
 
-    WriteRegister(REG_SYNC_WORD, 0x34); // LoRaWAN public sync word
+    WriteRegister(REG_SYNC_WORD, 0x34); //LoRaWAN public sync word
 
     if(sf == 11 || sf == 12){
         WriteRegister(REG_MODEM_CONFIG3, 0x0C);
@@ -152,12 +152,12 @@ void SetupLoRa(){
     WriteRegister(REG_HOP_PERIOD, 0xFF);
     WriteRegister(REG_FIFO_ADDR_PTR, ReadRegister(REG_FIFO_RX_BASE_AD));
 
-    // Set Continous Receive Mode
-    WriteRegister(REG_LNA, LNA_MAX_GAIN);  // max lna gain
+    //set Continous Receive Mode
+    WriteRegister(REG_LNA, LNA_MAX_GAIN); //max lna gain
     WriteRegister(REG_OPMODE, SX72_MODE_RX_CONTINUOS);
 }
 
-void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_sin){
+void SolveHostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin){
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
@@ -215,14 +215,14 @@ void SendStat(){
     status_report[10] = ifr.ifr_hwaddr.sa_data[4];
     status_report[11] = ifr.ifr_hwaddr.sa_data[5];
 
-    /* start composing datagram with the header */
-    uint8_t token_h = (uint8_t)rand(); /* random token */
-    uint8_t token_l = (uint8_t)rand(); /* random token */
+    //start composing datagram with the header
+    uint8_t token_h = rand(); //random token
+    uint8_t token_l = rand();
     status_report[1] = token_h;
     status_report[2] = token_l;
-    stat_index = 12; /* 12-byte header */
+    stat_index = 12; //12 byte header
 
-    /* get timestamp for statistics */
+    //get timestamp for statistics
     time_t t = time(NULL);
     strftime(stat_timestamp, sizeof stat_timestamp, "%F %T %Z", gmtime(&t));
 
@@ -231,18 +231,18 @@ void SendStat(){
     //TODO: add object at beginning
     json_t *root = json_pack("{s:s,s:i ",
             "time", stat_timestamp, //string
-            "lati", lat, //double
-            "long", lon, //double
-            "alti", alt, //double
-            "rxnb", cp_nb_rx_rcv, //uint
-            "rxok", cp_nb_rx_ok, //uint
-            "rxfw", cp_up_pkt_fwd, //uint
-            "ackr", 0, //double
-            "dwnb", 0, //uint
-            "txnb", 0, //uint
-            "pfrm", platform, //string
-            "mail", email, //string
-            "desc", description); //string
+            "lati", lat,            //double
+            "long", lon,            //double
+            "alti", alt,            //double
+            "rxnb", cp_nb_rx_rcv,   //uint
+            "rxok", cp_nb_rx_ok,    //uint
+            "rxfw", cp_up_pkt_fwd,  //uint
+            "ackr", 0,              //double
+            "dwnb", 0,              //uint
+            "txnb", 0,              //uint
+            "pfrm", platform,       //string
+            "mail", email,          //string
+            "desc", description);   //string
 
     if(!root){
         printf("Unable to create json object!\n");    
@@ -258,36 +258,34 @@ void SendStat(){
         printf(" %u packet%sreceived\n", cp_nb_rx_ok_tot, cp_nb_rx_ok_tot>1?"s ":" ");
     }
 
-    // Build and send message.
+    //build and send message.
     memcpy(status_report + 12, json, json_string_length(root));
     SendUdp(status_report, stat_index + json_string_length(root));
 }
 
 bool Receivepacket(){
-    long int SNR;
-    int rssicorr;
-    bool ret = false;
+    bool packet_received = false;
 
     //if (digitalRead(dio0) == 1) {
     //TODO:fix this
     if(1){
+    long int SNR;
         char message[256];
         uint8_t length = 0;
         if(ReceivePkt(message, &length)){
-            // OK got one
-            ret = true;
+            packet_received = true;
 
             uint8_t value = ReadRegister(REG_PKT_SNR_VALUE);
-            if(value & 0x80){ // The SNR sign bit is 1
-                // Invert and divide by 4
+            if(value & 0x80){ //the SNR sign bit is 1
+                //invert and divide by 4
                 value = ((~value + 1) & 0xFF) >> 2;
                 SNR = -value;
             } else {
                 // Divide by 4
-                SNR = ( value & 0xFF ) >> 2;
+                SNR = (value & 0xFF) >> 2;
             }
 
-            rssicorr = 157;
+            int rssicorr = 157;
 
             printf("Packet RSSI: %d, ", ReadRegister(0x1A) - rssicorr);
             printf("RSSI: %d, ", ReadRegister(0x1B) - rssicorr);
@@ -299,7 +297,7 @@ bool Receivepacket(){
             }
             printf("'\n");
 
-            char buff_up[TX_BUFF_SIZE]; /* buffer to compose the upstream packet */
+            char buff_up[TX_BUFF_SIZE]; //buffer to compose the upstream packet
             int buff_index = 0;
 
             /* gateway <-> MAC protocol variables */
@@ -316,28 +314,28 @@ bool Receivepacket(){
             //*(uint32_t *)(buff_up + 4) = net_mac_h; 
             //*(uint32_t *)(buff_up + 8) = net_mac_l;
 
-            buff_up[4]  = (uint8_t)ifr.ifr_hwaddr.sa_data[0];
-            buff_up[5]  = (uint8_t)ifr.ifr_hwaddr.sa_data[1];
-            buff_up[6]  = (uint8_t)ifr.ifr_hwaddr.sa_data[2]; 
+            buff_up[4]  = ifr.ifr_hwaddr.sa_data[0];
+            buff_up[5]  = ifr.ifr_hwaddr.sa_data[1];
+            buff_up[6]  = ifr.ifr_hwaddr.sa_data[2]; 
             buff_up[7]  = 0xFF;
             buff_up[8]  = 0xFF;
-            buff_up[9]  = (uint8_t)ifr.ifr_hwaddr.sa_data[3];
-            buff_up[10] = (uint8_t)ifr.ifr_hwaddr.sa_data[4];
-            buff_up[11] = (uint8_t)ifr.ifr_hwaddr.sa_data[5];
+            buff_up[9]  = ifr.ifr_hwaddr.sa_data[3];
+            buff_up[10] = ifr.ifr_hwaddr.sa_data[4];
+            buff_up[11] = ifr.ifr_hwaddr.sa_data[5];
 
-            /* start composing datagram with the header */
-            uint8_t token_h = (uint8_t)rand(); /* random token */
-            uint8_t token_l = (uint8_t)rand(); /* random token */
+            //start composing datagram with the header
+            uint8_t token_h = rand(); //random token
+            uint8_t token_l = rand();
             buff_up[1] = token_h;
             buff_up[2] = token_l;
-            buff_index = 12; /* 12-byte header */
+            buff_index = 12; //12 byte header
 
-            // TODO: tmst can jump is time is (re)set, not good.
+            //TODO: tmst can jump is time is (re)set, not good
             struct timeval now;
             gettimeofday(&now, NULL);
             uint32_t tmst = now.tv_sec * 1000000 + now.tv_usec;
 
-            // Encode payload.
+            //encode payload
             char b64[BASE64_MAX_LENGTH];
             bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
 
@@ -345,17 +343,17 @@ bool Receivepacket(){
             json_t *js_obj = json_object();
 
             json_object_set(js_obj, "", json_pack(
-                        "tmst", tmst, //uint
+                        "tmst", tmst,                 //uint
                         "freq", (double)freq/1000000, //double
-                        "chan", 0, //uint
-                        "rfch", 0, //uint
-                        "stat", 1, //uint
-                        "modu", "LORA", "datr", //??
-                        "codr", "4/5", //string
+                        "chan", 0,                    //uint
+                        "rfch", 0,                    //uint
+                        "stat", 1,                    //uint
+                        "modu", "LORA", "datr",       //??
+                        "codr", "4/5",                //string
                         "rssi", ReadRegister(0x1A) - rssicorr, //int
-                        "lsnr", SNR, //double
-                        "size", length, //uint
-                        "data", b64)); //string
+                        "lsnr", SNR,                  //double
+                        "size", length,               //uint
+                        "data", b64));                //string
 
             json_t *js_arr = json_array();
             json_array_append(js_arr, js_obj);
@@ -368,7 +366,6 @@ bool Receivepacket(){
             json_t *root = json_pack("", "rxpk", js_arr);
 
 
-
             ////string json = sb.GetString();
             ////printf("rxpk update: %s\n", json.c_str());
 
@@ -379,7 +376,7 @@ bool Receivepacket(){
             fflush(stdout);
         }
     }
-    return ret;
+    return packet_received;
 }
 
 void PrintConfiguration(){
@@ -449,19 +446,19 @@ int main(){
 
     // ID based on MAC Adddress of eth0
     printf("Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",
-            (uint8_t)ifr.ifr_hwaddr.sa_data[0],
-            (uint8_t)ifr.ifr_hwaddr.sa_data[1],
-            (uint8_t)ifr.ifr_hwaddr.sa_data[2],
-            (uint8_t)ifr.ifr_hwaddr.sa_data[3],
-            (uint8_t)ifr.ifr_hwaddr.sa_data[4],
-            (uint8_t)ifr.ifr_hwaddr.sa_data[5]
+            ifr.ifr_hwaddr.sa_data[0],
+            ifr.ifr_hwaddr.sa_data[1],
+            ifr.ifr_hwaddr.sa_data[2],
+            ifr.ifr_hwaddr.sa_data[3],
+            ifr.ifr_hwaddr.sa_data[4],
+            ifr.ifr_hwaddr.sa_data[5]
           );
 
     printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
     printf("-----------------------------------\n");
 
-    while(1) {
-        // Packet received ?
+    while(1){
+        //Packet received ?
         if(Receivepacket()){
             printf("Packet received!\n");
             // Led ON
@@ -474,12 +471,12 @@ int main(){
         }
 
         gettimeofday(&nowtime, NULL);
-        uint32_t nowseconds = (uint32_t)(nowtime.tv_sec);
-        if (nowseconds - lasttime >= 30) {
+        uint32_t nowseconds = nowtime.tv_sec;
+        if(nowseconds - lasttime >= 30){
             lasttime = nowseconds;
             SendStat();
-            cp_nb_rx_rcv = 0;
-            cp_nb_rx_ok = 0;
+            cp_nb_rx_rcv  = 0;
+            cp_nb_rx_ok   = 0;
             cp_up_pkt_fwd = 0;
         }
 
