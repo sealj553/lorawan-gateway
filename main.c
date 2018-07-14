@@ -53,28 +53,28 @@ void Die(const char *s){
 
 bool ReceivePkt(char *payload, uint8_t *p_length){
     //clear rxDone
-    WriteRegister(REG_IRQ_FLAGS, 0x40);
+    spi_write_reg(REG_IRQ_FLAGS, 0x40);
 
-    int irqflags = ReadRegister(REG_IRQ_FLAGS);
+    int irqflags = spi_read_reg(REG_IRQ_FLAGS);
     cp_nb_rx_rcv++;
 
     //payload crc: 0x20
     if((irqflags & 0x20) == 0x20) {
         printf("CRC error\n");
-        WriteRegister(REG_IRQ_FLAGS, 0x20);
+        spi_write_reg(REG_IRQ_FLAGS, 0x20);
         return false;
     } else {
         ++cp_nb_rx_ok;
         ++cp_nb_rx_ok_tot;
 
-        uint8_t currentAddr = ReadRegister(REG_FIFO_RX_CURRENT_ADDR);
-        uint8_t receivedCount = ReadRegister(REG_RX_NB_BYTES);
+        uint8_t currentAddr = spi_read_reg(REG_FIFO_RX_CURRENT_ADDR);
+        uint8_t receivedCount = spi_read_reg(REG_RX_NB_BYTES);
         *p_length = receivedCount;
 
-        WriteRegister(REG_FIFO_ADDR_PTR, currentAddr);
+        spi_write_reg(REG_FIFO_ADDR_PTR, currentAddr);
 
         for(int i = 0; i < receivedCount; ++i){
-            payload[i] = ReadRegister(REG_FIFO);
+            payload[i] = spi_read_reg(REG_FIFO);
         }
     }
     return true;
@@ -87,7 +87,7 @@ void SetupLoRa(){
     //digitalWrite(RST, LOW);
     //delay(100);
 
-    uint8_t version = ReadRegister(REG_VERSION);
+    uint8_t version = spi_read_reg(REG_VERSION);
     if(version != 0x12){ 
         printf("Transceiver version 0x%02X\n", version);
         Die("Unrecognized transceiver");
@@ -95,37 +95,37 @@ void SetupLoRa(){
         printf("SX1276 detected\n");
     }
 
-    WriteRegister(REG_OPMODE, SX72_MODE_SLEEP);
+    spi_write_reg(REG_OPMODE, SX72_MODE_SLEEP);
 
     // set frequency
     uint64_t frf = ((uint64_t)freq << 19) / 32000000;
-    WriteRegister(REG_FRF_MSB, frf >> 16);
-    WriteRegister(REG_FRF_MID, frf >> 8);
-    WriteRegister(REG_FRF_LSB, frf >> 0);
+    spi_write_reg(REG_FRF_MSB, frf >> 16);
+    spi_write_reg(REG_FRF_MID, frf >> 8);
+    spi_write_reg(REG_FRF_LSB, frf >> 0);
 
-    WriteRegister(REG_SYNC_WORD, 0x34); //LoRaWAN public sync word
+    spi_write_reg(REG_SYNC_WORD, 0x34); //LoRaWAN public sync word
 
     if(sf == 11 || sf == 12){
-        WriteRegister(REG_MODEM_CONFIG3, 0x0C);
+        spi_write_reg(REG_MODEM_CONFIG3, 0x0C);
     } else {
-        WriteRegister(REG_MODEM_CONFIG3, 0x04);
+        spi_write_reg(REG_MODEM_CONFIG3, 0x04);
     }
-    WriteRegister(REG_MODEM_CONFIG, 0x72);
-    WriteRegister(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
+    spi_write_reg(REG_MODEM_CONFIG, 0x72);
+    spi_write_reg(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
 
     if(sf == 10 || sf == 11 || sf == 12){
-        WriteRegister(REG_SYMB_TIMEOUT_LSB, 0x05);
+        spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x05);
     } else {
-        WriteRegister(REG_SYMB_TIMEOUT_LSB, 0x08);
+        spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x08);
     }
-    WriteRegister(REG_MAX_PAYLOAD_LENGTH, 0x80);
-    WriteRegister(REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
-    WriteRegister(REG_HOP_PERIOD, 0xFF);
-    WriteRegister(REG_FIFO_ADDR_PTR, ReadRegister(REG_FIFO_RX_BASE_AD));
+    spi_write_reg(REG_MAX_PAYLOAD_LENGTH, 0x80);
+    spi_write_reg(REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
+    spi_write_reg(REG_HOP_PERIOD, 0xFF);
+    spi_write_reg(REG_FIFO_ADDR_PTR, spi_read_reg(REG_FIFO_RX_BASE_AD));
 
     //set Continous Receive Mode
-    WriteRegister(REG_LNA, LNA_MAX_GAIN); //max lna gain
-    WriteRegister(REG_OPMODE, SX72_MODE_RX_CONTINUOS);
+    spi_write_reg(REG_LNA, LNA_MAX_GAIN); //max lna gain
+    spi_write_reg(REG_OPMODE, SX72_MODE_RX_CONTINUOS);
 }
 
 void SolveHostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin){
@@ -246,7 +246,7 @@ bool Receivepacket(){
         if(ReceivePkt(message, &length)){
             packet_received = true;
 
-            uint8_t value = ReadRegister(REG_PKT_SNR_VALUE);
+            uint8_t value = spi_read_reg(REG_PKT_SNR_VALUE);
             if(value & 0x80){ //the SNR sign bit is 1
                 //invert and divide by 4
                 value = ((~value + 1) & 0xFF) >> 2;
@@ -258,8 +258,8 @@ bool Receivepacket(){
 
             int rssicorr = 157;
 
-            printf("Packet RSSI: %d, ", ReadRegister(0x1A) - rssicorr);
-            printf("RSSI: %d, ", ReadRegister(0x1B) - rssicorr);
+            printf("Packet RSSI: %d, ", spi_read_reg(0x1A) - rssicorr);
+            printf("RSSI: %d, ", spi_read_reg(0x1B) - rssicorr);
             printf("SNR: %li, ", SNR);
             printf("Length: %hhu Message:'", length);
             for(int i = 0; i < length; ++i){
@@ -320,7 +320,7 @@ bool Receivepacket(){
                         "stat", 1,                    //uint
                         "modu", "LORA", "datr",       //??
                         "codr", "4/5",                //string
-                        "rssi", ReadRegister(0x1A) - rssicorr, //int
+                        "rssi", spi_read_reg(0x1A) - rssicorr, //int
                         "lsnr", SNR,                  //double
                         "size", length,               //uint
                         "data", b64));                //string
@@ -362,26 +362,15 @@ void PrintConfiguration(){
 int main(){
     PrintConfiguration();
 
-    int rstPin = gpioInit("/sys/class/gpio/gpio3/value", O_WRONLY);
-    int intPin = gpioInit("/sys/class/gpio/gpio4/value", O_RDONLY);
+    //set up hardware
+    int rstPin = gpio_init("/sys/class/gpio/gpio3/value", O_WRONLY);
+    int intPin = gpio_init("/sys/class/gpio/gpio4/value", O_RDONLY);
+    int spi = spi_init("/dev/spidev0.0", O_RDWR);
 
-    //TODO:fix this
-    /*if(!spi_init()){
-      fprintf(stderr, "Failed to initialize SPI interface: %s\n", spi_get_error());
-      exit(1);
-      }
-
-      if(!gpio_init()){
-      fprintf(stderr, "Failed to initialize GPIO interface: %s\n", gpio_get_error());
-      exit(1);
-      }*/
-
-    // Init SPI
-
-    // Setup LORA
+    //setup LORA
     SetupLoRa();
 
-    // Prepare Socket connection
+    //prepare Socket connection
     if((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
         Die("socket");
     }
@@ -392,7 +381,7 @@ int main(){
     strncpy(ifr.ifr_name, interface, IFNAMSIZ - 1);
     ioctl(sock, SIOCGIFHWADDR, &ifr);
 
-    // ID based on MAC Adddress of eth0
+    //ID based on MAC Adddress of eth0
     printf("Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",
             ifr.ifr_hwaddr.sa_data[0],
             ifr.ifr_hwaddr.sa_data[1],

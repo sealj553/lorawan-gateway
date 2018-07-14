@@ -1,25 +1,26 @@
 #include "spi.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 
-int gpioInit(const char *dev, mode_t mode){
+int gpio_init(const char *dev, mode_t mode){
     int fd;
     if((fd = open(dev, mode)) == -1){
         perror("open");
-        return -1;
+        exit(1);
     }
     return fd;
 }
 
-void gpioClose(int fd){
+void gpio_close(int fd){
     if(close(fd) == -1){
         perror("close");
     }
 }
 
-int gpioRead(int fd){
+int gpio_read(int fd){
     char buf;
 
     if(read(fd, &buf, 1) == -1){
@@ -35,7 +36,7 @@ int gpioRead(int fd){
     return buf == '1';
 }
 
-int gpioWrite(int fd, int value){
+int gpio_write(int fd, int value){
     if(write(fd, value ? "1" : "0", 1) == -1){
         perror("write");
         return -1;

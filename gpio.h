@@ -3,9 +3,9 @@
 
 #include <fcntl.h>
 
-int gpioInit(const char *dev, mode_t mode);
-void gpioClose(int fd);
-int gpioRead(int fd);
-int gpioWrite(int fd, int value);
-
+int gpio_init(const char *dev, mode_t mode);
+void gpio_close(int fd);
+int gpio_read(int fd);
+int gpio_write(int fd, int value);
+    
 #endif
