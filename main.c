@@ -81,17 +81,6 @@ bool ReceivePkt(char *payload, uint8_t *p_length){
 }
 
 void SetupLoRa(){
-    //char buff[16];
-    //printf("Trying to detect module with ");
-    //printf("NSS=%s "  , PinName(ssPin, buff));
-    //printf("DIO0=%s " , PinName(dio0 , buff));
-    //printf("Reset=%s ", PinName(RST  , buff));
-    //printf("Led1=%s\n", PinName(Led1 , buff));
-
-    // check basic 
-    //if (ssPin == 0xff || dio0 == 0xff) {
-    //  Die("Bad pin configuration ssPin and dio0 need at least to be defined");
-    //}
 
     //digitalWrite(RST, HIGH);
     //delay(100);
@@ -371,15 +360,10 @@ void PrintConfiguration(){
 }
 
 int main(){
-    //unsigned int led1_timer;
-
     PrintConfiguration();
 
-    // Init WiringPI
-    //wiringPiSetup() ;
-    //pinMode(ssPin, OUTPUT);
-    //pinMode(dio0, INPUT);
-    //pinMode(RST, OUTPUT);
+    int rstPin = gpioInit("/sys/class/gpio/gpio3/value", O_WRONLY);
+    int intPin = gpioInit("/sys/class/gpio/gpio4/value", O_RDONLY);
 
     //TODO:fix this
     /*if(!spi_init()){
@@ -392,22 +376,7 @@ int main(){
       exit(1);
       }*/
 
-    // LED ?
-    //if (Led1 != 0xff) {
-    //  pinMode(Led1, OUTPUT);
-
-    //  // Blink to indicate startup
-    //  for (uint8_t i=0; i<5 ; i++) {
-    //    digitalWrite(Led1, 1);
-    //    delay(200);
-    //    digitalWrite(Led1, 0);
-    //    delay(200);
-    //  }
-    //}
-
     // Init SPI
-    //fix
-    //wiringPiSPISetup(SPI_CHANNEL, 500000);
 
     // Setup LORA
     SetupLoRa();
@@ -441,13 +410,6 @@ int main(){
         //Packet received ?
         if(Receivepacket()){
             printf("Packet received!\n");
-            // Led ON
-            //if (Led1 != 0xff) {
-            //  digitalWrite(Led1, 1);
-            //}
-            // start our Led blink timer, LED as been lit in Receivepacket
-            //fix
-            //led1_timer = millis();
         }
 
         struct timeval nowtime;
@@ -460,20 +422,6 @@ int main(){
             cp_nb_rx_ok   = 0;
             cp_up_pkt_fwd = 0;
         }
-
-        // Led timer in progress ?
-        /*if (led1_timer) {
-        // Led timer expiration, Blink duration is 250ms
-        if (millis() - led1_timer >= 250) {
-        // Stop Led timer
-        led1_timer = 0;
-
-        // Led OFF
-        if (Led1 != 0xff) {
-        digitalWrite(Led1, 0);
-        }
-        }
-        }*/
 
         // Let some time to the OS
         delay(1);

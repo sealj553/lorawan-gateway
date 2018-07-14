@@ -1,17 +1,44 @@
 #include "spi.h"
 
-#include "libmpsse/mpsse.h"
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
 
-static struct mpsse_context *dev = NULL;
-
-int gpio_init(){
-    return (dev = MPSSE(GPIO, 0, 0)) != NULL && dev->open;
+int gpioInit(const char *dev, mode_t mode){
+    int fd;
+    if((fd = open(dev, mode)) == -1){
+        perror("open");
+        return -1;
+    }
+    return fd;
 }
 
-void gpio_close(){
-    Close(dev);
+void gpioClose(int fd){
+    if(close(fd) == -1){
+        perror("close");
+    }
 }
 
-const char* gpio_get_error(){
-    return ErrorString(dev);
+int gpioRead(int fd){
+    char buf;
+
+    if(read(fd, &buf, 1) == -1){
+        perror("read");
+        return -1;
+    }
+
+    if(lseek(fd, 0, SEEK_SET) == -1){
+        perror("lseek");
+        return -1;
+    }
+
+    return buf == '1';
+}
+
+int gpioWrite(int fd, int value){
+    if(write(fd, value ? "1" : "0", 1) == -1){
+        perror("write");
+        return -1;
+    }
+    return value;
 }
