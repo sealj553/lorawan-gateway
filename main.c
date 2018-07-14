@@ -37,6 +37,8 @@ uint32_t cp_nb_rx_bad;
 uint32_t cp_nb_rx_nocrc;
 uint32_t cp_up_pkt_fwd;
 
+int rstPin, intPin, spi;
+
 void PrintConfiguration();
 void Die(const char *s);
 bool ReceivePkt(char* payload, uint8_t* p_length);
@@ -53,41 +55,40 @@ void Die(const char *s){
 
 bool ReceivePkt(char *payload, uint8_t *p_length){
     //clear rxDone
-    spi_write_reg(REG_IRQ_FLAGS, 0x40);
+    spi_write_reg(spi, REG_IRQ_FLAGS, 0x40);
 
-    int irqflags = spi_read_reg(REG_IRQ_FLAGS);
+    int irqflags = spi_read_reg(spi, REG_IRQ_FLAGS);
     cp_nb_rx_rcv++;
 
     //payload crc: 0x20
     if((irqflags & 0x20) == 0x20) {
         printf("CRC error\n");
-        spi_write_reg(REG_IRQ_FLAGS, 0x20);
+        spi_write_reg(spi, REG_IRQ_FLAGS, 0x20);
         return false;
     } else {
         ++cp_nb_rx_ok;
         ++cp_nb_rx_ok_tot;
 
-        uint8_t currentAddr = spi_read_reg(REG_FIFO_RX_CURRENT_ADDR);
-        uint8_t receivedCount = spi_read_reg(REG_RX_NB_BYTES);
+        uint8_t currentAddr = spi_read_reg(spi, REG_FIFO_RX_CURRENT_ADDR);
+        uint8_t receivedCount = spi_read_reg(spi, REG_RX_NB_BYTES);
         *p_length = receivedCount;
 
-        spi_write_reg(REG_FIFO_ADDR_PTR, currentAddr);
+        spi_write_reg(spi, REG_FIFO_ADDR_PTR, currentAddr);
 
         for(int i = 0; i < receivedCount; ++i){
-            payload[i] = spi_read_reg(REG_FIFO);
+            payload[i] = spi_read_reg(spi, REG_FIFO);
         }
     }
     return true;
 }
 
 void SetupLoRa(){
+    gpio_write(rstPin, 1);
+    delay(100);
+    gpio_write(rstPin, 0);
+    delay(100);
 
-    //digitalWrite(RST, HIGH);
-    //delay(100);
-    //digitalWrite(RST, LOW);
-    //delay(100);
-
-    uint8_t version = spi_read_reg(REG_VERSION);
+    uint8_t version = spi_read_reg(spi, REG_VERSION);
     if(version != 0x12){ 
         printf("Transceiver version 0x%02X\n", version);
         Die("Unrecognized transceiver");
@@ -95,37 +96,37 @@ void SetupLoRa(){
         printf("SX1276 detected\n");
     }
 
-    spi_write_reg(REG_OPMODE, SX72_MODE_SLEEP);
+    spi_write_reg(spi, REG_OPMODE, SX72_MODE_SLEEP);
 
     // set frequency
     uint64_t frf = ((uint64_t)freq << 19) / 32000000;
-    spi_write_reg(REG_FRF_MSB, frf >> 16);
-    spi_write_reg(REG_FRF_MID, frf >> 8);
-    spi_write_reg(REG_FRF_LSB, frf >> 0);
+    spi_write_reg(spi, REG_FRF_MSB, frf >> 16);
+    spi_write_reg(spi, REG_FRF_MID, frf >> 8);
+    spi_write_reg(spi, REG_FRF_LSB, frf >> 0);
 
-    spi_write_reg(REG_SYNC_WORD, 0x34); //LoRaWAN public sync word
+    spi_write_reg(spi, REG_SYNC_WORD, 0x34); //LoRaWAN public sync word
 
     if(sf == 11 || sf == 12){
-        spi_write_reg(REG_MODEM_CONFIG3, 0x0C);
+        spi_write_reg(spi, REG_MODEM_CONFIG3, 0x0C);
     } else {
-        spi_write_reg(REG_MODEM_CONFIG3, 0x04);
+        spi_write_reg(spi, REG_MODEM_CONFIG3, 0x04);
     }
-    spi_write_reg(REG_MODEM_CONFIG, 0x72);
-    spi_write_reg(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
+    spi_write_reg(spi, REG_MODEM_CONFIG, 0x72);
+    spi_write_reg(spi, REG_MODEM_CONFIG2, (sf << 4) | 0x04);
 
     if(sf == 10 || sf == 11 || sf == 12){
-        spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x05);
+        spi_write_reg(spi, REG_SYMB_TIMEOUT_LSB, 0x05);
     } else {
-        spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x08);
+        spi_write_reg(spi, REG_SYMB_TIMEOUT_LSB, 0x08);
     }
-    spi_write_reg(REG_MAX_PAYLOAD_LENGTH, 0x80);
-    spi_write_reg(REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
-    spi_write_reg(REG_HOP_PERIOD, 0xFF);
-    spi_write_reg(REG_FIFO_ADDR_PTR, spi_read_reg(REG_FIFO_RX_BASE_AD));
+    spi_write_reg(spi, REG_MAX_PAYLOAD_LENGTH, 0x80);
+    spi_write_reg(spi, REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
+    spi_write_reg(spi, REG_HOP_PERIOD, 0xFF);
+    spi_write_reg(spi, REG_FIFO_ADDR_PTR, spi_read_reg(spi, REG_FIFO_RX_BASE_AD));
 
     //set Continous Receive Mode
-    spi_write_reg(REG_LNA, LNA_MAX_GAIN); //max lna gain
-    spi_write_reg(REG_OPMODE, SX72_MODE_RX_CONTINUOS);
+    spi_write_reg(spi, REG_LNA, LNA_MAX_GAIN); //max lna gain
+    spi_write_reg(spi, REG_OPMODE, SX72_MODE_RX_CONTINUOS);
 }
 
 void SolveHostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin){
@@ -246,7 +247,7 @@ bool Receivepacket(){
         if(ReceivePkt(message, &length)){
             packet_received = true;
 
-            uint8_t value = spi_read_reg(REG_PKT_SNR_VALUE);
+            uint8_t value = spi_read_reg(spi, REG_PKT_SNR_VALUE);
             if(value & 0x80){ //the SNR sign bit is 1
                 //invert and divide by 4
                 value = ((~value + 1) & 0xFF) >> 2;
@@ -258,8 +259,8 @@ bool Receivepacket(){
 
             int rssicorr = 157;
 
-            printf("Packet RSSI: %d, ", spi_read_reg(0x1A) - rssicorr);
-            printf("RSSI: %d, ", spi_read_reg(0x1B) - rssicorr);
+            printf("Packet RSSI: %d, ", spi_read_reg(spi, 0x1A) - rssicorr);
+            printf("RSSI: %d, ", spi_read_reg(spi, 0x1B) - rssicorr);
             printf("SNR: %li, ", SNR);
             printf("Length: %hhu Message:'", length);
             for(int i = 0; i < length; ++i){
@@ -320,7 +321,7 @@ bool Receivepacket(){
                         "stat", 1,                    //uint
                         "modu", "LORA", "datr",       //??
                         "codr", "4/5",                //string
-                        "rssi", spi_read_reg(0x1A) - rssicorr, //int
+                        "rssi", spi_read_reg(spi, 0x1A) - rssicorr, //int
                         "lsnr", SNR,                  //double
                         "size", length,               //uint
                         "data", b64));                //string
@@ -363,9 +364,9 @@ int main(){
     PrintConfiguration();
 
     //set up hardware
-    int rstPin = gpio_init("/sys/class/gpio/gpio3/value", O_WRONLY);
-    int intPin = gpio_init("/sys/class/gpio/gpio4/value", O_RDONLY);
-    int spi = spi_init("/dev/spidev0.0", O_RDWR);
+    rstPin = gpio_init("/sys/class/gpio/gpio3/value", O_WRONLY);
+    intPin = gpio_init("/sys/class/gpio/gpio4/value", O_RDONLY);
+    spi = spi_init("/dev/spidev0.0", O_RDWR);
 
     //setup LORA
     SetupLoRa();

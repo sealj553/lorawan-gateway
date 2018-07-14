@@ -1,10 +1,13 @@
 #include "spi.h"
 
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <linux/spi/spidev.h>
+
 #include <stdio.h>
 #include <stdlib.h>
-
-static char dataRead[2];
-static char dataWrite[2];
+#include <string.h>
 
 //to change the SPI mode
 //uint8_t mode = SPI_MODE_0;
@@ -13,30 +16,51 @@ static char dataWrite[2];
 //ioctl(spi, SPI_IOC_WR_MODE, &mode);
 //ioctl(spi, SPI_IOC_WR_LSB_FIRST, &lsb);
 
-int spi_init(const char *dev, mode_t mode){
-    int spi;
-    if((spi = open(dev, mode)) == -1){
+int spi_init(const char *devname, mode_t mode){
+    int fd;
+    if((fd = open(devname, mode)) == -1){
         perror("open");
         exit(1);
     }
-    return spi;
+    return fd;
 }
 
-void spi_close(){
+void spi_close(int fd){
+    if(close(fd) == -1){
+        perror("close");
+    }
 }
 
-uint8_t spi_read_reg(uint8_t reg){
-    dataWrite[0] = reg & 0x7F;
-    dataWrite[1] = 0x00;
+uint8_t spi_read_reg(int fd, uint8_t reg){
+    char mosi[2] = { reg & 0x7F, 0x00 };
+    char miso[2] = { 0x00 };
 
-    //FastTransfer(dev, dataWrite, dataRead, REG_SZ);
+    struct spi_ioc_transfer spi_trans;
+    memset(&spi_trans, 0, sizeof(spi_trans));
+    spi_trans.tx_buf = (unsigned long)&mosi;
+    spi_trans.rx_buf = (unsigned long)&miso;
+    spi_trans.len    = 2;
 
-    return dataRead[1];
+    if(ioctl(fd, SPI_IOC_MESSAGE(1), &spi_trans) == -1){
+        perror("spi transfer");
+        return -1;
+    }
+
+    return miso[1];
 }
 
-void spi_write_reg(uint8_t reg, uint8_t value){
-    dataWrite[0] = reg | 0x80;
-    dataWrite[1] = value;
+int spi_write_reg(int fd, uint8_t reg, uint8_t value){
+    char mosi [2] = { reg | 0x80, value };
 
-    //FastWrite(dev, dataWrite, REG_SZ);
+    struct spi_ioc_transfer spi_trans;
+    memset(&spi_trans, 0, sizeof(spi_trans));
+    spi_trans.tx_buf = (unsigned long)&mosi;
+    spi_trans.rx_buf = 0;
+    spi_trans.len    = 2;
+
+    if(ioctl(fd, SPI_IOC_MESSAGE(1), &spi_trans) == -1){
+        perror("spi transfer");
+        return -1;
+    }
+    return 2;
 }

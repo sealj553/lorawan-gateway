@@ -5,9 +5,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-int gpio_init(const char *dev, mode_t mode){
+int gpio_init(const char *devname, mode_t mode){
     int fd;
-    if((fd = open(dev, mode)) == -1){
+    if((fd = open(devname, mode)) == -1){
         perror("open");
         exit(1);
     }
