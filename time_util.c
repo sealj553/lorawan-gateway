@@ -9,7 +9,7 @@ long millis(void){
 }
 
 void delay(unsigned int ms){
-    static struct timespec time;
+    struct timespec time;
     time.tv_sec = ms / 1000;
     if(time.tv_sec > 0){
         ms -= time.tv_sec * 1000;

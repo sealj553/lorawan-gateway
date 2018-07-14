@@ -89,9 +89,11 @@ void SetupLoRa(){
     delay(100);
 
     uint8_t version = spi_read_reg(spi, REG_VERSION);
+    printf("Transceiver version 0x%02X\n", version);
+
     if(version != 0x12){ 
-        printf("Transceiver version 0x%02X\n", version);
-        Die("Unrecognized transceiver");
+        puts("Unrecognized transceiver");
+        exit(1);
     } else {
         printf("SX1276 detected\n");
     }
@@ -141,14 +143,14 @@ void SolveHostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_
 
     struct addrinfo* p_result = NULL;
 
-    //Resolve the domain name into a list of addresses
+    //resolve the domain name into a list of addresses
     int error = getaddrinfo(p_hostname, service, &hints, &p_result);
     if(error != 0){
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
         exit(EXIT_FAILURE);
     }
 
-    //Loop over all returned results
+    //loop over all returned results
     for(struct addrinfo *p_rp = p_result; p_rp != NULL; p_rp = p_rp->ai_next) {
         struct sockaddr_in *p_saddr = (struct sockaddr_in*)p_rp->ai_addr;
         //printf("%s solved to %s\n", p_hostname, inet_ntoa(p_saddr->sin_addr));
@@ -170,12 +172,12 @@ void SendUdp(char *msg, int length){
 }
 
 void SendStat(){
-    static char status_report[STATUS_SIZE]; /* status report as a JSON object */
+    static char status_report[STATUS_SIZE]; //status report as a JSON object
     char stat_timestamp[24];
 
     int stat_index = 0;
 
-    /* pre-fill the data buffer with fixed fields */
+    //pre-fill the data buffer with fixed fields
     status_report[0]  = PROTOCOL_VERSION;
     status_report[3]  = PKT_PUSH_DATA;
     status_report[4]  = ifr.ifr_hwaddr.sa_data[0];
@@ -224,7 +226,7 @@ void SendStat(){
     printf("stat update: %s\n", json);
 
     printf("stat update: %s", stat_timestamp);
-    if (cp_nb_rx_ok_tot==0) {
+    if(cp_nb_rx_ok_tot==0){
         printf(" no packet received yet\n");
     } else {
         printf(" %u packet%sreceived\n", cp_nb_rx_ok_tot, cp_nb_rx_ok_tot>1?"s ":" ");
@@ -238,9 +240,7 @@ void SendStat(){
 bool Receivepacket(){
     bool packet_received = false;
 
-    //if (digitalRead(dio0) == 1) {
-    //TODO:fix this
-    if(1){
+    if(gpio_read(intPin)){
         long int SNR;
         char message[256];
         uint8_t length = 0;
@@ -268,16 +268,16 @@ bool Receivepacket(){
             }
             printf("'\n");
 
-            char buff_up[TX_BUFF_SIZE]; //buffer to compose the upstream packet
-            int buff_index = 0;
+            //char buff_up[TX_BUFF_SIZE]; //buffer to compose the upstream packet
+            ////int buff_index = 0;
 
             /* gateway <-> MAC protocol variables */
             //static uint32_t net_mac_h; /* Most Significant Nibble, network order */
             //static uint32_t net_mac_l; /* Least Significant Nibble, network order */
 
             /* pre-fill the data buffer with fixed fields */
-            buff_up[0] = PROTOCOL_VERSION;
-            buff_up[3] = PKT_PUSH_DATA;
+            ////buff_up[0] = PROTOCOL_VERSION;
+            ////buff_up[3] = PKT_PUSH_DATA;
 
             /* process some of the configuration variables */
             //net_mac_h = htonl((uint32_t)(0xFFFFFFFF & (lgwm>>32)));
@@ -285,21 +285,21 @@ bool Receivepacket(){
             //*(uint32_t *)(buff_up + 4) = net_mac_h; 
             //*(uint32_t *)(buff_up + 8) = net_mac_l;
 
-            buff_up[4]  = ifr.ifr_hwaddr.sa_data[0];
-            buff_up[5]  = ifr.ifr_hwaddr.sa_data[1];
-            buff_up[6]  = ifr.ifr_hwaddr.sa_data[2]; 
-            buff_up[7]  = 0xFF;
-            buff_up[8]  = 0xFF;
-            buff_up[9]  = ifr.ifr_hwaddr.sa_data[3];
-            buff_up[10] = ifr.ifr_hwaddr.sa_data[4];
-            buff_up[11] = ifr.ifr_hwaddr.sa_data[5];
+            /////buff_up[4]  = ifr.ifr_hwaddr.sa_data[0];
+            /////buff_up[5]  = ifr.ifr_hwaddr.sa_data[1];
+            /////buff_up[6]  = ifr.ifr_hwaddr.sa_data[2]; 
+            /////buff_up[7]  = 0xFF;
+            /////buff_up[8]  = 0xFF;
+            /////buff_up[9]  = ifr.ifr_hwaddr.sa_data[3];
+            /////buff_up[10] = ifr.ifr_hwaddr.sa_data[4];
+            /////buff_up[11] = ifr.ifr_hwaddr.sa_data[5];
 
-            //start composing datagram with the header
-            uint8_t token_h = rand(); //random token
-            uint8_t token_l = rand();
-            buff_up[1] = token_h;
-            buff_up[2] = token_l;
-            buff_index = 12; //12 byte header
+            ///////start composing datagram with the header
+            /////uint8_t token_h = rand(); //random token
+            /////uint8_t token_l = rand();
+            /////buff_up[1] = token_h;
+            /////buff_up[2] = token_l;
+            /////buff_index = 12; //12 byte header
 
             //TODO: tmst can jump is time is (re)set, not good
             struct timeval now;
@@ -334,7 +334,7 @@ bool Receivepacket(){
 
             //TODO: add json stuff here
             //TODO: finish format specifier and params
-            json_t *root = json_pack("", "rxpk", js_arr);
+            /////json_t *root = json_pack("", "rxpk", js_arr);
 
 
             ////string json = sb.GetString();
@@ -361,15 +361,15 @@ void PrintConfiguration(){
 }
 
 int main(){
-    PrintConfiguration();
-
     //set up hardware
-    rstPin = gpio_init("/sys/class/gpio/gpio3/value", O_WRONLY);
-    intPin = gpio_init("/sys/class/gpio/gpio4/value", O_RDONLY);
+    setup_interrupt("rising"); //gpio4, input
+    rstPin = gpio_init("/sys/class/gpio/gpio3/value", O_WRONLY); //gpio 3, output
     spi = spi_init("/dev/spidev0.0", O_RDWR);
 
-    //setup LORA
+    //setup LoRa
     SetupLoRa();
+
+    PrintConfiguration();
 
     //prepare Socket connection
     if((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
