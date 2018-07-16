@@ -28,8 +28,8 @@
 #define SX72_MODE_SLEEP             0x80
 #define SX72_MODE_STANDBY           0x81
 
-
 #define PAYLOAD_LENGTH              0x40
+#define PAYLOAD_CRC                 0x20
 
 // LOW NOISE AMPLIFIER
 #define REG_LNA                     0x0C

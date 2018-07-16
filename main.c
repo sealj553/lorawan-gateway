@@ -41,7 +41,7 @@ int rstPin, intPin, spi;
 
 void print_configuration();
 void die(const char *s);
-bool receive_pkt(char* payload, uint8_t* p_length);
+bool receive_pkt(char *payload, uint8_t *p_length);
 void setup_lora();
 void solve_hostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin);
 void send_udp(char *msg, int length);
@@ -55,15 +55,14 @@ void die(const char *s){
 
 bool receive_pkt(char *payload, uint8_t *p_length){
     //clear rxDone
-    spi_write_reg(spi, REG_IRQ_FLAGS, 0x40);
+    spi_write_reg(spi, REG_IRQ_FLAGS, PAYLOAD_LENGTH);
 
     int irqflags = spi_read_reg(spi, REG_IRQ_FLAGS);
-    cp_nb_rx_rcv++;
+    ++cp_nb_rx_rcv;
 
-    //payload crc: 0x20
-    if((irqflags & 0x20) == 0x20) {
+    if((irqflags & PAYLOAD_CRC) == PAYLOAD_CRC) {
         printf("CRC error\n");
-        spi_write_reg(spi, REG_IRQ_FLAGS, 0x20);
+        spi_write_reg(spi, REG_IRQ_FLAGS, PAYLOAD_CRC);
         return false;
     } else {
         ++cp_nb_rx_ok;
@@ -203,7 +202,7 @@ void send_stat(){
     //compare to original implementation to see if this actually works
     //TODO: finish this format string
     //TODO: add object at beginning
-    json_t *root = json_pack("{s:s,s:i ",
+    json_t *root = json_pack("{s:s,s:f ",
             "time", stat_timestamp, //string
             "lati", lat,            //double
             "long", lon,            //double
