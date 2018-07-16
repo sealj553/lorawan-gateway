@@ -30,12 +30,12 @@ struct sockaddr_in si_other;
 int sock;
 struct ifreq ifr;
 
-uint32_t cp_nb_rx_rcv;
-uint32_t cp_nb_rx_ok;
-uint32_t cp_nb_rx_ok_tot;
-uint32_t cp_nb_rx_bad;
-uint32_t cp_nb_rx_nocrc;
-uint32_t cp_up_pkt_fwd;
+uint32_t cp_nb_rx_rcv,
+         cp_nb_rx_ok,
+         cp_nb_rx_ok_tot,
+         cp_nb_rx_bad,
+         cp_nb_rx_nocrc,
+         cp_up_pkt_fwd;
 
 int rstPin, intPin, spi;
 
