@@ -3,10 +3,7 @@
 
 #include "server.h"
 #include <stdint.h>
-
-#define bool int
-#define true 1
-#define false 0
+#include <stdbool.h>
 
 static const char *interface = "eth0";
 
@@ -16,8 +13,8 @@ static const float lon = -71.09260;
 static const int   alt = 60;
 
 //informal status fields
-static const char *platform    = "rpi-single-channel";    //platform definition
-static const char *email       = "IoTNet@mit.edu";       //used for contact email
+static const char *platform    = "single-channel-gateway";     //platform definition
+static const char *email       = "IoTNet@mit.edu";             //used for contact email
 static const char *description = "RPI Single Channel Gateway"; //used for free form description
 
 //spreading factor (SF7 - SF12), center frequency

@@ -11,6 +11,7 @@ It was originally forked from [hallard/single_chan_pkt_fwd](https://github.com/h
 
 ## Dependencies
 [jansson](https://github.com/akheron/jansson) is used to pack json data
+
 For a debian-based distro:
 ```shell
 sudo apt-get install libjansson-dev
@@ -26,4 +27,5 @@ sudo ./single_chan_pkt_fwd
 
 ## Liscense
 base64.c and base64.h are licensed under the Revised BSD License
+
 All other files licensed under the Eclipse Public License v1.0

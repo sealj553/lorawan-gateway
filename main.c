@@ -90,7 +90,7 @@ void setup_lora(){
 
     uint8_t version = spi_read_reg(spi, REG_VERSION);
 
-    printf("Transceiver version 0x%02X\n", version);
+    printf("Transceiver version 0x%02X, ", version);
     if(version != 0x12){ 
         puts("Unrecognized transceiver");
         exit(1);
