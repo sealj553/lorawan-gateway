@@ -39,21 +39,21 @@ uint32_t cp_up_pkt_fwd;
 
 int rstPin, intPin, spi;
 
-void PrintConfiguration();
-void Die(const char *s);
-bool ReceivePkt(char* payload, uint8_t* p_length);
-void SetupLoRa();
-void SolveHostname(const char* p_hostname, uint16_t port, struct sockaddr_in* p_sin);
-void SendUdp(char *msg, int length);
-void SendStat();
-bool Receivepacket();
+void print_configuration();
+void die(const char *s);
+bool receive_pkt(char* payload, uint8_t* p_length);
+void setup_lora();
+void solve_hostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin);
+void send_udp(char *msg, int length);
+void send_stat();
+bool receive_packet();
 
-void Die(const char *s){
+void die(const char *s){
     perror(s);
     exit(1);
 }
 
-bool ReceivePkt(char *payload, uint8_t *p_length){
+bool receive_pkt(char *payload, uint8_t *p_length){
     //clear rxDone
     spi_write_reg(spi, REG_IRQ_FLAGS, 0x40);
 
@@ -82,7 +82,7 @@ bool ReceivePkt(char *payload, uint8_t *p_length){
     return true;
 }
 
-void SetupLoRa(){
+void setup_lora(){
     gpio_write(rstPin, 0);
     delay(100);
     gpio_write(rstPin, 1);
@@ -131,7 +131,7 @@ void SetupLoRa(){
     spi_write_reg(spi, REG_OPMODE, SX72_MODE_RX_CONTINUOS);
 }
 
-void SolveHostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin){
+void solve_hostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin){
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
@@ -141,7 +141,7 @@ void SolveHostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_
     char service[6] = { '\0' };
     snprintf(service, 6, "%hu", port);
 
-    struct addrinfo* p_result = NULL;
+    struct addrinfo *p_result = NULL;
 
     //resolve the domain name into a list of addresses
     int error = getaddrinfo(p_hostname, service, &hints, &p_result);
@@ -160,18 +160,18 @@ void SolveHostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_
     freeaddrinfo(p_result);
 }
 
-void SendUdp(char *msg, int length){
+void send_udp(char *msg, int length){
     for(int i = 0; i < numservers; ++i){
         si_other.sin_port = htons(servers[i].port);
 
-        SolveHostname(servers[i].address, servers[i].port, &si_other);
+        solve_hostname(servers[i].address, servers[i].port, &si_other);
         if(sendto(sock, (char*)msg, length, 0, (struct sockaddr*) &si_other, sizeof(si_other)) == -1){
-            Die("sendto()");
+            die("sendto()");
         }
     }
 }
 
-void SendStat(){
+void send_stat(){
     static char status_report[STATUS_SIZE]; //status report as a JSON object
     char stat_timestamp[24];
 
@@ -234,17 +234,17 @@ void SendStat(){
 
     //build and send message.
     memcpy(status_report + 12, json, json_string_length(root));
-    SendUdp(status_report, stat_index + json_string_length(root));
+    send_udp(status_report, stat_index + json_string_length(root));
 }
 
-bool Receivepacket(){
+bool receive_packet(){
     bool packet_received = false;
 
     if(gpio_read(intPin)){
         long int SNR;
         char message[256];
         uint8_t length = 0;
-        if(ReceivePkt(message, &length)){
+        if(receive_pkt(message, &length)){
             packet_received = true;
 
             uint8_t value = spi_read_reg(spi, REG_PKT_SNR_VALUE);
@@ -342,7 +342,7 @@ bool Receivepacket(){
 
             ////// Build and send message.
             ////memcpy(buff_up + 12, json.c_str(), json.size());
-            ////SendUdp(buff_up, buff_index + json.size());
+            ////send_udp(buff_up, buff_index + json.size());
 
             fflush(stdout);
         }
@@ -350,7 +350,7 @@ bool Receivepacket(){
     return packet_received;
 }
 
-void PrintConfiguration(){
+void print_configuration(){
     for(int i = 0; i < numservers; ++i){
         printf("server: address = %s; port = %hu\n", servers[i].address, servers[i].port);
     }
@@ -367,13 +367,13 @@ int main(){
     spi = spi_init("/dev/spidev0.0", O_RDWR);
 
     //setup LoRa
-    SetupLoRa();
+    setup_lora();
 
-    PrintConfiguration();
+    print_configuration();
 
     //prepare Socket connection
     if((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
-        Die("socket");
+        die("socket");
     }
 
     memset(&si_other, 0, sizeof(si_other));
@@ -398,7 +398,7 @@ int main(){
     uint32_t lasttime;
     while(1){
         //Packet received ?
-        if(Receivepacket()){
+        if(receive_packet()){
             printf("Packet received!\n");
         }
 
@@ -407,7 +407,7 @@ int main(){
         uint32_t nowseconds = nowtime.tv_sec;
         if(nowseconds - lasttime >= 30){
             lasttime = nowseconds;
-            SendStat();
+            send_stat();
             cp_nb_rx_rcv  = 0;
             cp_nb_rx_ok   = 0;
             cp_up_pkt_fwd = 0;
