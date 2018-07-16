@@ -16,6 +16,10 @@
 //ioctl(spi, SPI_IOC_WR_MODE, &mode);
 //ioctl(spi, SPI_IOC_WR_LSB_FIRST, &lsb);
 
+
+///#define CH341_SPI_MAX_FREQ          1e6
+///max sx1276 freq = 10Mhz
+
 int spi_init(const char *devname, mode_t mode){
     int fd;
     if((fd = open(devname, mode)) == -1){
@@ -50,7 +54,7 @@ uint8_t spi_read_reg(int fd, uint8_t reg){
 }
 
 int spi_write_reg(int fd, uint8_t reg, uint8_t value){
-    char mosi [2] = { reg | 0x80, value };
+    char mosi[2] = { reg | 0x80, value };
 
     struct spi_ioc_transfer spi_trans;
     memset(&spi_trans, 0, sizeof(spi_trans));

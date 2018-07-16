@@ -83,19 +83,19 @@ bool ReceivePkt(char *payload, uint8_t *p_length){
 }
 
 void SetupLoRa(){
-    gpio_write(rstPin, 1);
-    delay(100);
     gpio_write(rstPin, 0);
+    delay(100);
+    gpio_write(rstPin, 1);
     delay(100);
 
     uint8_t version = spi_read_reg(spi, REG_VERSION);
-    printf("Transceiver version 0x%02X\n", version);
 
+    printf("Transceiver version 0x%02X\n", version);
     if(version != 0x12){ 
         puts("Unrecognized transceiver");
         exit(1);
     } else {
-        printf("SX1276 detected\n");
+        puts("SX1276 detected\n");
     }
 
     spi_write_reg(spi, REG_OPMODE, SX72_MODE_SLEEP);
