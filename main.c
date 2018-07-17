@@ -3,7 +3,7 @@
 
 #include "registers.h"
 #include "config.h"
- 
+
 #include "base64.h"
 #include "spi.h"
 #include "gpio.h"
@@ -234,112 +234,110 @@ void send_stat(){
 }
 
 bool receive_packet(){
-    bool packet_received = false;
-
     wait_irq();
 
     char message[256];
     uint8_t length;
-    if(get_packet_data(message, &length)){
-        packet_received = true;
-
-        long int SNR;
-        uint8_t value = spi_read_reg(spi, REG_PKT_SNR_VALUE);
-        if(value & 0x80){ //the SNR sign bit is 1
-            //invert and divide by 4
-            value = ((~value + 1) & 0xFF) >> 2;
-            SNR = -value;
-        } else {
-            // Divide by 4
-            SNR = (value & 0xFF) >> 2;
-        }
-
-        const int rssicorr = 157;
-
-        printf("Packet RSSI: %d, ", spi_read_reg(spi, 0x1A) - rssicorr);
-        printf("RSSI: %d, ", spi_read_reg(spi, 0x1B) - rssicorr);
-        printf("SNR: %li, ", SNR);
-        printf("Length: %hhu Message:'", length);
-        for(int i = 0; i < length; ++i){
-            printf("%c", isprint(message[i]) ? message[i] : '.');
-        }
-        printf("'\n");
-
-        char buff_up[TX_BUFF_SIZE]; //buffer to compose the upstream packet
-        int buff_index = 0;
-
-        /* gateway <-> MAC protocol variables */
-        //static uint32_t net_mac_h; /* Most Significant Nibble, network order */
-        //static uint32_t net_mac_l; /* Least Significant Nibble, network order */
-
-        /* pre-fill the data buffer with fixed fields */
-        ////buff_up[0] = PROTOCOL_VERSION;
-        ////buff_up[3] = PKT_PUSH_DATA;
-
-        /* process some of the configuration variables */
-        //net_mac_h = htonl((uint32_t)(0xFFFFFFFF & (lgwm>>32)));
-        //net_mac_l = htonl((uint32_t)(0xFFFFFFFF &  lgwm  ));
-        //*(uint32_t *)(buff_up + 4) = net_mac_h; 
-        //*(uint32_t *)(buff_up + 8) = net_mac_l;
-
-        buff_up[1]  = rand(); //random token
-        buff_up[2]  = rand();
-        buff_up[4]  = ifr.ifr_hwaddr.sa_data[0];
-        buff_up[5]  = ifr.ifr_hwaddr.sa_data[1];
-        buff_up[6]  = ifr.ifr_hwaddr.sa_data[2]; 
-        buff_up[7]  = 0xFF;
-        buff_up[8]  = 0xFF;
-        buff_up[9]  = ifr.ifr_hwaddr.sa_data[3];
-        buff_up[10] = ifr.ifr_hwaddr.sa_data[4];
-        buff_up[11] = ifr.ifr_hwaddr.sa_data[5];
-
-        buff_index = 12; //12 byte header
-
-        //TODO: start_time can jump if time is (re)set, not good
-        struct timeval now;
-        gettimeofday(&now, NULL);
-        uint32_t start_time = now.tv_sec * 1000000 + now.tv_usec;
-
-        //encode payload
-        char b64[BASE64_MAX_LENGTH];
-        bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
-
-        char datr[] = "SFxxBWxxx";
-        snprintf(datr, strlen(datr) + 1, "SF%hhuBW%hu", sf, bw);
-
-        json_t *root = json_object();
-        json_t *arr  = json_array();
-        json_array_append_new(arr,
-                json_pack("{si,sf,si,si,si,ss,ss,ss,si,si,si,ss}",
-                    "tmst", start_time,           //uint
-                    "freq", (double)freq/1000000, //double
-                    "chan", 0,                    //uint
-                    "rfch", 0,                    //uint
-                    "stat", 1,                    //uint
-                    "modu", "LORA",               //string
-                    "datr", datr,                 //string
-                    "codr", "4/5",                //string
-                    "rssi", spi_read_reg(spi, 0x1A) - rssicorr, //int
-                    "lsnr", SNR,                  //long
-                    "size", length,               //uint
-                    "data", b64));                //string
-
-        json_object_set_new(root, "rxpk", arr);
-
-        const char *json_str = json_dumps(root, JSON_COMPACT);
-
-        //printf("rxpk update: %s\n", json_str);
-
-        int json_strlen = strlen(json_str);
-
-        // Build and send message.
-        memcpy(buff_up + 12, json_str, json_strlen);
-        send_udp(buff_up, buff_index + json_strlen);
-
-        json_decref(root);
-        fflush(stdout);
+    if(!get_packet_data(message, &length)){
+        return false;
     }
-    return packet_received;
+
+    long int SNR;
+    uint8_t value = spi_read_reg(spi, REG_PKT_SNR_VALUE);
+    if(value & 0x80){ //the SNR sign bit is 1
+        //invert and divide by 4
+        value = ((~value + 1) & 0xFF) >> 2;
+        SNR = -value;
+    } else {
+        // Divide by 4
+        SNR = (value & 0xFF) >> 2;
+    }
+
+    const int rssicorr = 157;
+
+    printf("Packet RSSI: %d, ", spi_read_reg(spi, 0x1A) - rssicorr);
+    printf("RSSI: %d, ", spi_read_reg(spi, 0x1B) - rssicorr);
+    printf("SNR: %li, ", SNR);
+    printf("Length: %hhu Message:'", length);
+    for(int i = 0; i < length; ++i){
+        printf("%c", isprint(message[i]) ? message[i] : '.');
+    }
+    printf("'\n");
+
+    char buff_up[TX_BUFF_SIZE]; //buffer to compose the upstream packet
+    int buff_index = 0;
+
+    /* gateway <-> MAC protocol variables */
+    //static uint32_t net_mac_h; /* Most Significant Nibble, network order */
+    //static uint32_t net_mac_l; /* Least Significant Nibble, network order */
+
+    /* pre-fill the data buffer with fixed fields */
+    ////buff_up[0] = PROTOCOL_VERSION;
+    ////buff_up[3] = PKT_PUSH_DATA;
+
+    /* process some of the configuration variables */
+    //net_mac_h = htonl((uint32_t)(0xFFFFFFFF & (lgwm>>32)));
+    //net_mac_l = htonl((uint32_t)(0xFFFFFFFF &  lgwm  ));
+    //*(uint32_t *)(buff_up + 4) = net_mac_h; 
+    //*(uint32_t *)(buff_up + 8) = net_mac_l;
+
+    buff_up[1]  = rand(); //random token
+    buff_up[2]  = rand();
+    buff_up[4]  = ifr.ifr_hwaddr.sa_data[0];
+    buff_up[5]  = ifr.ifr_hwaddr.sa_data[1];
+    buff_up[6]  = ifr.ifr_hwaddr.sa_data[2]; 
+    buff_up[7]  = 0xFF;
+    buff_up[8]  = 0xFF;
+    buff_up[9]  = ifr.ifr_hwaddr.sa_data[3];
+    buff_up[10] = ifr.ifr_hwaddr.sa_data[4];
+    buff_up[11] = ifr.ifr_hwaddr.sa_data[5];
+
+    buff_index = 12; //12 byte header
+
+    //TODO: start_time can jump if time is (re)set, not good
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    uint32_t start_time = now.tv_sec * 1000000 + now.tv_usec;
+
+    //encode payload
+    char b64[BASE64_MAX_LENGTH];
+    bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
+
+    char datr[] = "SFxxBWxxx";
+    snprintf(datr, strlen(datr) + 1, "SF%hhuBW%hu", sf, bw);
+
+    json_t *root = json_object();
+    json_t *arr  = json_array();
+    json_array_append_new(arr,
+            json_pack("{si,sf,si,si,si,ss,ss,ss,si,si,si,ss}",
+                "tmst", start_time,           //uint
+                "freq", (double)freq/1000000, //double
+                "chan", 0,                    //uint
+                "rfch", 0,                    //uint
+                "stat", 1,                    //uint
+                "modu", "LORA",               //string
+                "datr", datr,                 //string
+                "codr", "4/5",                //string
+                "rssi", spi_read_reg(spi, 0x1A) - rssicorr, //int
+                "lsnr", SNR,                  //long
+                "size", length,               //uint
+                "data", b64));                //string
+
+    json_object_set_new(root, "rxpk", arr);
+
+    const char *json_str = json_dumps(root, JSON_COMPACT);
+
+    //printf("rxpk update: %s\n", json_str);
+
+    int json_strlen = strlen(json_str);
+
+    // Build and send message.
+    memcpy(buff_up + 12, json_str, json_strlen);
+    send_udp(buff_up, buff_index + json_strlen);
+
+    json_decref(root);
+    fflush(stdout);
+    return true;
 }
 
 void print_configuration(){
