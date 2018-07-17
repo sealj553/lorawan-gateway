@@ -17,6 +17,7 @@ int gpio_init(const char *devname, mode_t mode){
         perror("open");
         exit(1);
     }
+
     return fd;
 }
 
@@ -69,9 +70,11 @@ void setup_interrupt(const char *edge){
 }
 
 void wait_irq(void){
-    //wait until rising edge on gpio4
-    if(poll(&fds, 1, -1) == -1){
-        perror("poll");
-        exit(1);
-    }
+    //this doesn't work for some reason
+    ////wait until rising edge on gpio4
+    //if(poll(fds, 1, -1) == -1){
+    //    perror("poll");
+    //    exit(1);
+    //}
+    while(gpio_read(irq) == 0);
 }

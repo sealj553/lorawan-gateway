@@ -23,8 +23,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #include <ctype.h>
+#include <time.h>
 
 struct sockaddr_in si_other;
 int sock;
@@ -384,14 +384,12 @@ int main(){
     printf("Listening at SF%i on %.6lf Mhz.\n", sf, (double)freq/1000000);
     printf("-----------------------------------\n");
 
-    uint32_t lasttime;
+    uint32_t lasttime = seconds();
+
     while(1){
         receive_packet();
-        printf("Packet received!\n");
 
-        struct timeval nowtime;
-        gettimeofday(&nowtime, NULL);
-        uint32_t nowseconds = nowtime.tv_sec;
+        int nowseconds = seconds();
         if(nowseconds - lasttime >= 30){
             lasttime = nowseconds;
             send_stat();
@@ -399,8 +397,5 @@ int main(){
             cp_nb_rx_ok   = 0;
             cp_up_pkt_fwd = 0;
         }
-
-        //Let some time to the OS
-        //delay(1);
     }
 }

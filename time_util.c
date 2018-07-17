@@ -1,11 +1,13 @@
 #include "time_util.h"
 
 #include <time.h>
+#include <sys/time.h>
+#include <stdlib.h>
 
-long millis(void){
-    struct timespec time;
-    clock_gettime(CLOCK_MONOTONIC, &time);
-    return time.tv_nsec / 1000000L;
+int seconds(void){
+    struct timeval nowtime;
+    gettimeofday(&nowtime, NULL);
+    return nowtime.tv_sec;
 }
 
 void delay(unsigned int ms){
