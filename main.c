@@ -30,12 +30,12 @@ struct sockaddr_in si_other;
 int sock;
 struct ifreq ifr;
 
-uint32_t cp_nb_rx_rcv,
-         cp_nb_rx_ok,
-         cp_nb_rx_ok_tot,
-         cp_nb_rx_bad,
-         cp_nb_rx_nocrc,
-         cp_up_pkt_fwd;
+uint32_t cp_nb_rx_rcv    = 0;
+uint32_t cp_nb_rx_ok     = 0;
+uint32_t cp_nb_rx_ok_tot = 0;
+uint32_t cp_nb_rx_bad    = 0;
+uint32_t cp_nb_rx_nocrc  = 0;
+uint32_t cp_up_pkt_fwd   = 0;
 
 int rstPin, intPin, spi;
 
@@ -61,7 +61,7 @@ bool receive_pkt(char *payload, uint8_t *p_length){
     ++cp_nb_rx_rcv;
 
     if((irqflags & PAYLOAD_CRC) == PAYLOAD_CRC) {
-        printf("CRC error\n");
+        puts("CRC error");
         spi_write_reg(spi, REG_IRQ_FLAGS, PAYLOAD_CRC);
         return false;
     } else {
@@ -133,7 +133,7 @@ void setup_lora(){
 void solve_hostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin){
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_INET;
+    hints.ai_family   = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
     hints.ai_protocol = IPPROTO_UDP;
 
@@ -172,12 +172,11 @@ void send_udp(char *msg, int length){
 
 void send_stat(){
     static char status_report[STATUS_SIZE]; //status report as a JSON object
-    char stat_timestamp[24];
-
-    int stat_index = 0;
 
     //pre-fill the data buffer with fixed fields
     status_report[0]  = PROTOCOL_VERSION;
+    status_report[1]  = rand(); //random tokens
+    status_report[2]  = rand();
     status_report[3]  = PKT_PUSH_DATA;
     status_report[4]  = ifr.ifr_hwaddr.sa_data[0];
     status_report[5]  = ifr.ifr_hwaddr.sa_data[1];
@@ -188,52 +187,49 @@ void send_stat(){
     status_report[10] = ifr.ifr_hwaddr.sa_data[4];
     status_report[11] = ifr.ifr_hwaddr.sa_data[5];
 
-    //start composing datagram with the header
-    uint8_t token_h = rand(); //random token
-    uint8_t token_l = rand();
-    status_report[1] = token_h;
-    status_report[2] = token_l;
-    stat_index = 12; //12 byte header
-
     //get timestamp for statistics
+    char stat_timestamp[24];
     time_t t = time(NULL);
     strftime(stat_timestamp, sizeof stat_timestamp, "%F %T %Z", gmtime(&t));
 
-    //compare to original implementation to see if this actually works
-    //TODO: finish this format string
-    //TODO: add object at beginning
-    json_t *root = json_pack("{s:s,s:f ",
+    json_t *obj = json_pack("{ss,sf,sf,si,si,si,si,sf,si,si,ss,ss,ss}",
             "time", stat_timestamp, //string
             "lati", lat,            //double
             "long", lon,            //double
-            "alti", alt,            //double
+            "alti", alt,            //int
             "rxnb", cp_nb_rx_rcv,   //uint
             "rxok", cp_nb_rx_ok,    //uint
             "rxfw", cp_up_pkt_fwd,  //uint
-            "ackr", 0,              //double
+            "ackr", 0.f,            //double
             "dwnb", 0,              //uint
             "txnb", 0,              //uint
             "pfrm", platform,       //string
             "mail", email,          //string
             "desc", description);   //string
 
+    json_t *root = json_object();
+    json_object_set_new(root, "stat", obj);
+
     if(!root){
-        printf("Unable to create json object!\n");    
+        puts("Unable to create json object!");    
     }
 
-    const char *json = json_string_value(root);
-    printf("stat update: %s\n", json);
+    const char *json_str = json_dumps(root, JSON_COMPACT);
+    printf("stat update: %s\n", json_str);
 
     printf("stat update: %s", stat_timestamp);
-    if(cp_nb_rx_ok_tot==0){
+    if(cp_nb_rx_ok_tot == 0){
         printf(" no packet received yet\n");
     } else {
         printf(" %u packet%sreceived\n", cp_nb_rx_ok_tot, cp_nb_rx_ok_tot>1?"s ":" ");
     }
 
-    //build and send message.
-    memcpy(status_report + 12, json, json_string_length(root));
-    send_udp(status_report, stat_index + json_string_length(root));
+    //build and send message
+    //12 is header size
+    memcpy(status_report + 12, json_str, json_string_length(root));
+    send_udp(status_report, 12 + json_string_length(root));
+
+    json_decref(root);
 }
 
 bool receive_packet(){
@@ -300,41 +296,45 @@ bool receive_packet(){
             /////buff_up[2] = token_l;
             /////buff_index = 12; //12 byte header
 
-            //TODO: tmst can jump is time is (re)set, not good
-            struct timeval now;
-            gettimeofday(&now, NULL);
-            uint32_t tmst = now.tv_sec * 1000000 + now.tv_usec;
-
-            //encode payload
-            char b64[BASE64_MAX_LENGTH];
-            bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
-
+///            //TODO: start_time can jump is time is (re)set, not good
+///            struct timeval now;
+///            gettimeofday(&now, NULL);
+///            uint32_t start_time = now.tv_sec * 1000000 + now.tv_usec;
+///
+///            //encode payload
+///            char b64[BASE64_MAX_LENGTH];
+///            bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
+///
             //TODO:fix this
-            json_t *js_obj = json_object();
+            //json_t *val = json_object();
 
-            json_object_set(js_obj, "", json_pack(
-                        "tmst", tmst,                 //uint
-                        "freq", (double)freq/1000000, //double
-                        "chan", 0,                    //uint
-                        "rfch", 0,                    //uint
-                        "stat", 1,                    //uint
-                        "modu", "LORA", "datr",       //??
-                        "codr", "4/5",                //string
-                        "rssi", spi_read_reg(spi, 0x1A) - rssicorr, //int
-                        "lsnr", SNR,                  //double
-                        "size", length,               //uint
-                        "data", b64));                //string
+            //////json_object_set(val, "s", json_pack("idk"));
 
-            json_t *js_arr = json_array();
-            json_array_append(js_arr, js_obj);
+            ////stat
+            //json_object_set(val, "", json_pack(
+            //            "tmst", start_time,           //uint
+            //            "freq", (double)freq/1000000, //double
+            //            "chan", 0,                    //uint
+            //            "rfch", 0,                    //uint
+            //            "stat", 1,                    //uint
+            //            "modu", "LORA", "datr",       //??
+            //            "codr", "4/5",                //string
+            //            "rssi", spi_read_reg(spi, 0x1A) - rssicorr, //int
+            //            "lsnr", SNR,                  //double
+            //            "size", length,               //uint
+            //            "data", b64));                //string
 
-            json_t *js_obj2 = json_object();
-            json_object_set(js_obj2, "rxpk", js_arr);
+            //json_t *js_arr = json_array();
+            //json_array_append(js_arr, val);
+
+            //json_t *js_obj2 = json_object();
+            //json_object_set(js_obj2, "rxpk", js_arr);
 
             //TODO: add json stuff here
             //TODO: finish format specifier and params
             /////json_t *root = json_pack("", "rxpk", js_arr);
 
+            //print_json(root);
 
             ////string json = sb.GetString();
             ////printf("rxpk update: %s\n", json.c_str());
@@ -343,6 +343,7 @@ bool receive_packet(){
             ////memcpy(buff_up + 12, json.c_str(), json.size());
             ////send_udp(buff_up, buff_index + json.size());
 
+            ///json_decref(root);
             fflush(stdout);
         }
     }
@@ -360,6 +361,7 @@ void print_configuration(){
 }
 
 int main(){
+
     //set up hardware
     setup_interrupt("rising"); //gpio4, input
     rstPin = gpio_init("/sys/class/gpio/gpio3/value", O_WRONLY); //gpio 3, output
@@ -393,6 +395,7 @@ int main(){
 
     printf("Listening at SF%i on %.6lf Mhz.\n", sf,(double)freq/1000000);
     printf("-----------------------------------\n");
+    send_stat();
 
     uint32_t lasttime;
     while(1){
@@ -412,7 +415,7 @@ int main(){
             cp_up_pkt_fwd = 0;
         }
 
-        // Let some time to the OS
-        delay(1);
+        //Let some time to the OS
+        //delay(1);
     }
 }
