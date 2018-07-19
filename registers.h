@@ -22,6 +22,7 @@
 #define REG_HOP_PERIOD              0x24
 #define REG_SYNC_WORD               0x39
 #define REG_VERSION                 0x42
+#define REG_RSSI                    0x1A
 
 #define SX72_MODE_RX_CONTINUOS      0x85
 #define SX72_MODE_TX                0x83
@@ -52,26 +53,29 @@
 #define SX72_MC1_LOW_DATA_RATE_OPTIMIZE  0x01 // mandated for SF11 and SF12
 
 // FRF
-#define REG_FRF_MSB              0x06
-#define REG_FRF_MID              0x07
-#define REG_FRF_LSB              0x08
+#define REG_FRF_MSB                 0x06
+#define REG_FRF_MID                 0x07
+#define REG_FRF_LSB                 0x08
 
-//#define FRF_MSB                  0xD9 // 868.1 Mhz
+//868.1 Mhz
+//#define FRF_MSB                  0xD9
 //#define FRF_MID                  0x06
 //#define FRF_LSB                  0x66
 
-#define BUFLEN 2048  //Max length of buffer
+//Max length of buffer
+#define BUFLEN                      2048
 
-#define PROTOCOL_VERSION  1
-#define PKT_PUSH_DATA 0
-#define PKT_PUSH_ACK  1
-#define PKT_PULL_DATA 2
+#define PROTOCOL_VERSION            1
+#define PKT_PUSH_DATA               0
+#define PKT_PUSH_ACK                1
+#define PKT_PULL_DATA               2
 
-#define PKT_PULL_RESP 3
-#define PKT_PULL_ACK  4
+#define PKT_PULL_RESP               3
+#define PKT_PULL_ACK                4
 
-#define TX_BUFF_SIZE    2048
-#define STATUS_SIZE     1024
-#define BASE64_MAX_LENGTH 341
+#define TX_BUFF_SIZE                2048
+#define STATUS_SIZE                 1024
+#define BASE64_MAX_LENGTH           341
+#define HEADER_SIZE                 12
 
 #endif

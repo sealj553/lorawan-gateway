@@ -162,30 +162,33 @@ void solve_hostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p
 void send_udp(char *msg, int length){
     for(int i = 0; i < numservers; ++i){
         si_other.sin_port = htons(servers[i].port);
-
         solve_hostname(servers[i].address, servers[i].port, &si_other);
-        if(sendto(sock, (char*)msg, length, 0, (struct sockaddr*) &si_other, sizeof(si_other)) == -1){
+        if(sendto(sock, msg, length, 0, (struct sockaddr*) &si_other, sizeof(si_other)) == -1){
             die("sendto()");
         }
     }
 }
 
-void send_stat(){
-    static char status_report[STATUS_SIZE]; //status report as a JSON object
+void fill_pkt_header(char *pkt){
+    pkt[0]  = PROTOCOL_VERSION;
+    pkt[1]  = rand(); //random tokens
+    pkt[2]  = rand();
+    pkt[3]  = PKT_PUSH_DATA;
+    pkt[4]  = ifr.ifr_hwaddr.sa_data[0];
+    pkt[5]  = ifr.ifr_hwaddr.sa_data[1];
+    pkt[6]  = ifr.ifr_hwaddr.sa_data[2];
+    pkt[7]  = 0xFF;
+    pkt[8]  = 0xFF;
+    pkt[9]  = ifr.ifr_hwaddr.sa_data[3];
+    pkt[10] = ifr.ifr_hwaddr.sa_data[4];
+    pkt[11] = ifr.ifr_hwaddr.sa_data[5];
+}
 
-    //pre-fill the data buffer with fixed fields
-    status_report[0]  = PROTOCOL_VERSION;
-    status_report[1]  = rand(); //random tokens
-    status_report[2]  = rand();
-    status_report[3]  = PKT_PUSH_DATA;
-    status_report[4]  = ifr.ifr_hwaddr.sa_data[0];
-    status_report[5]  = ifr.ifr_hwaddr.sa_data[1];
-    status_report[6]  = ifr.ifr_hwaddr.sa_data[2];
-    status_report[7]  = 0xFF;
-    status_report[8]  = 0xFF;
-    status_report[9]  = ifr.ifr_hwaddr.sa_data[3];
-    status_report[10] = ifr.ifr_hwaddr.sa_data[4];
-    status_report[11] = ifr.ifr_hwaddr.sa_data[5];
+void send_stat(){
+    //status report packet
+    char status_report[STATUS_SIZE];
+
+    fill_pkt_header(status_report);
 
     //get timestamp for statistics
     char stat_timestamp[24];
@@ -209,10 +212,6 @@ void send_stat(){
                 "mail", email,          //string
                 "desc", description));  //string
 
-    if(!root){
-        puts("Unable to create json object!");    
-    }
-
     const char *json_str = json_dumps(root, JSON_COMPACT);
     printf("stat update: %s\n", json_str);
 
@@ -220,15 +219,14 @@ void send_stat(){
     if(cp_nb_rx_ok_tot == 0){
         printf(" no packet received yet\n");
     } else {
-        printf(" %u packet%sreceived\n", cp_nb_rx_ok_tot, cp_nb_rx_ok_tot>1?"s ":" ");
+        printf(" %u packet%sreceived\n", cp_nb_rx_ok_tot, cp_nb_rx_ok_tot > 1 ? "s " : " ");
     }
 
     int json_strlen = strlen(json_str);
 
     //build and send message
-    //12 is header size
-    memcpy(status_report + 12, json_str, json_strlen);
-    send_udp(status_report, 12 + json_strlen);
+    memcpy(status_report + HEADER_SIZE, json_str, json_strlen);
+    send_udp(status_report, HEADER_SIZE + json_strlen);
 
     json_decref(root);
 }
@@ -244,7 +242,8 @@ bool receive_packet(){
 
     long int SNR;
     uint8_t value = spi_read_reg(spi, REG_PKT_SNR_VALUE);
-    if(value & 0x80){ //the SNR sign bit is 1
+    //the SNR sign bit is 1
+    if(value & 0x80){
         //invert and divide by 4
         value = ((~value + 1) & 0xFF) >> 2;
         SNR = -value;
@@ -265,34 +264,18 @@ bool receive_packet(){
     printf("'\n");
 
     char buff_up[TX_BUFF_SIZE]; //buffer to compose the upstream packet
-    int buff_index = 0;
 
-    /* gateway <-> MAC protocol variables */
-    //static uint32_t net_mac_h; /* Most Significant Nibble, network order */
-    //static uint32_t net_mac_l; /* Least Significant Nibble, network order */
+    //gateway <-> MAC protocol variables
+    //static uint32_t net_mac_h; //Most Significant Nibble, network order
+    //static uint32_t net_mac_l; //Least Significant Nibble, network order
 
-    /* pre-fill the data buffer with fixed fields */
-    ////buff_up[0] = PROTOCOL_VERSION;
-    ////buff_up[3] = PKT_PUSH_DATA;
-
-    /* process some of the configuration variables */
+    //process some of the configuration variables
     //net_mac_h = htonl((uint32_t)(0xFFFFFFFF & (lgwm>>32)));
     //net_mac_l = htonl((uint32_t)(0xFFFFFFFF &  lgwm  ));
     //*(uint32_t *)(buff_up + 4) = net_mac_h; 
     //*(uint32_t *)(buff_up + 8) = net_mac_l;
 
-    buff_up[1]  = rand(); //random token
-    buff_up[2]  = rand();
-    buff_up[4]  = ifr.ifr_hwaddr.sa_data[0];
-    buff_up[5]  = ifr.ifr_hwaddr.sa_data[1];
-    buff_up[6]  = ifr.ifr_hwaddr.sa_data[2]; 
-    buff_up[7]  = 0xFF;
-    buff_up[8]  = 0xFF;
-    buff_up[9]  = ifr.ifr_hwaddr.sa_data[3];
-    buff_up[10] = ifr.ifr_hwaddr.sa_data[4];
-    buff_up[11] = ifr.ifr_hwaddr.sa_data[5];
-
-    buff_index = 12; //12 byte header
+    fill_pkt_header(buff_up);
 
     //TODO: start_time can jump if time is (re)set, not good
     struct timeval now;
@@ -318,7 +301,7 @@ bool receive_packet(){
                 "modu", "LORA",               //string
                 "datr", datr,                 //string
                 "codr", "4/5",                //string
-                "rssi", spi_read_reg(spi, 0x1A) - rssicorr, //int
+                "rssi", spi_read_reg(spi, REG_RSSI) - rssicorr, //int
                 "lsnr", SNR,                  //long
                 "size", length,               //uint
                 "data", b64));                //string
@@ -333,7 +316,7 @@ bool receive_packet(){
 
     // Build and send message.
     memcpy(buff_up + 12, json_str, json_strlen);
-    send_udp(buff_up, buff_index + json_strlen);
+    send_udp(buff_up, HEADER_SIZE + json_strlen);
 
     json_decref(root);
     fflush(stdout);
@@ -350,7 +333,7 @@ void print_configuration(){
     printf("  freq=%d, sf=%d\n", freq, sf);
 }
 
-int main(){
+void init(){
     //set up hardware
     setup_interrupt("rising"); //gpio4, input
     rstPin = gpio_init("/sys/class/gpio/gpio3/value", O_WRONLY); //gpio 3, output
@@ -383,6 +366,10 @@ int main(){
 
     printf("Listening at SF%i on %.6lf Mhz.\n", sf, (double)freq/1000000);
     printf("-----------------------------------\n");
+}
+
+int main(){
+    init();
 
     uint32_t lasttime = seconds();
 
