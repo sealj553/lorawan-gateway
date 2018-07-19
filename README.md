@@ -17,6 +17,8 @@ For a debian-based distro:
 sudo apt-get install libjansson-dev
 ```
 
+You also need gschorcht's [spi-ch341-usb](https://github.com/gschorcht/spi-ch341-usb) kernel module installed.
+
 ## Building
 ```shell
 git clone https://github.com/sealj553/single_chan_pkt_fwd.git
