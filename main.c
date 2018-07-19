@@ -38,6 +38,7 @@ uint32_t cp_nb_rx_nocrc  = 0;
 uint32_t cp_up_pkt_fwd   = 0;
 
 int rstPin, intPin, spi;
+const double mhz = (double)freq/1000000;
 
 void print_configuration();
 void die(const char *s);
@@ -46,7 +47,8 @@ void setup_lora();
 void solve_hostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin);
 void send_udp(char *msg, int length);
 void send_stat();
-bool receive_packet();
+bool receive_packet(void);
+void init(void);
 
 void die(const char *s){
     perror(s);
@@ -105,7 +107,8 @@ void setup_lora(){
     spi_write_reg(spi, REG_FRF_MID, frf >> 8);
     spi_write_reg(spi, REG_FRF_LSB, frf >> 0);
 
-    spi_write_reg(spi, REG_SYNC_WORD, 0x34); //LoRaWAN public sync word
+    //LoRaWAN public sync word
+    spi_write_reg(spi, REG_SYNC_WORD, 0x34);
 
     if(sf == 11 || sf == 12){
         spi_write_reg(spi, REG_MODEM_CONFIG3, 0x0C);
@@ -186,9 +189,9 @@ void fill_pkt_header(char *pkt){
 
 void send_stat(){
     //status report packet
-    char status_report[STATUS_SIZE];
+    char status_pkt[STATUS_SIZE];
 
-    fill_pkt_header(status_report);
+    fill_pkt_header(status_pkt);
 
     //get timestamp for statistics
     char stat_timestamp[24];
@@ -225,13 +228,14 @@ void send_stat(){
     int json_strlen = strlen(json_str);
 
     //build and send message
-    memcpy(status_report + HEADER_SIZE, json_str, json_strlen);
-    send_udp(status_report, HEADER_SIZE + json_strlen);
+    memcpy(status_pkt + HEADER_SIZE, json_str, json_strlen);
+    send_udp(status_pkt, HEADER_SIZE + json_strlen);
 
+    //free json memory
     json_decref(root);
 }
 
-bool receive_packet(){
+bool receive_packet(void){
     wait_irq();
 
     char message[256];
@@ -253,9 +257,10 @@ bool receive_packet(){
     }
 
     const int rssicorr = 157;
+    int rssi = spi_read_reg(spi, REG_PKT_RSSI) - rssicorr;
 
-    printf("Packet RSSI: %d, ", spi_read_reg(spi, 0x1A) - rssicorr);
-    printf("RSSI: %d, ", spi_read_reg(spi, 0x1B) - rssicorr);
+    printf("Packet RSSI: %d, ", rssi);
+    printf("RSSI: %d, ", spi_read_reg(spi, REG_RSSI) - rssicorr);
     printf("SNR: %li, ", SNR);
     printf("Length: %hhu Message:'", length);
     for(int i = 0; i < length; ++i){
@@ -263,19 +268,10 @@ bool receive_packet(){
     }
     printf("'\n");
 
-    char buff_up[TX_BUFF_SIZE]; //buffer to compose the upstream packet
+    //buffer to compose the upstream packet
+    char pkt[TX_BUFF_SIZE];
 
-    //gateway <-> MAC protocol variables
-    //static uint32_t net_mac_h; //Most Significant Nibble, network order
-    //static uint32_t net_mac_l; //Least Significant Nibble, network order
-
-    //process some of the configuration variables
-    //net_mac_h = htonl((uint32_t)(0xFFFFFFFF & (lgwm>>32)));
-    //net_mac_l = htonl((uint32_t)(0xFFFFFFFF &  lgwm  ));
-    //*(uint32_t *)(buff_up + 4) = net_mac_h; 
-    //*(uint32_t *)(buff_up + 8) = net_mac_l;
-
-    fill_pkt_header(buff_up);
+    fill_pkt_header(pkt);
 
     //TODO: start_time can jump if time is (re)set, not good
     struct timeval now;
@@ -294,14 +290,14 @@ bool receive_packet(){
     json_array_append_new(arr,
             json_pack("{si,sf,si,si,si,ss,ss,ss,si,si,si,ss}",
                 "tmst", start_time,           //uint
-                "freq", (double)freq/1000000, //double
+                "freq", mhz,                  //double
                 "chan", 0,                    //uint
                 "rfch", 0,                    //uint
                 "stat", 1,                    //uint
                 "modu", "LORA",               //string
                 "datr", datr,                 //string
                 "codr", "4/5",                //string
-                "rssi", spi_read_reg(spi, REG_RSSI) - rssicorr, //int
+                "rssi", rssi,                 //int
                 "lsnr", SNR,                  //long
                 "size", length,               //uint
                 "data", b64));                //string
@@ -315,9 +311,10 @@ bool receive_packet(){
     int json_strlen = strlen(json_str);
 
     // Build and send message.
-    memcpy(buff_up + 12, json_str, json_strlen);
-    send_udp(buff_up, HEADER_SIZE + json_strlen);
+    memcpy(pkt + 12, json_str, json_strlen);
+    send_udp(pkt, HEADER_SIZE + json_strlen);
 
+    //free json memory
     json_decref(root);
     fflush(stdout);
     return true;
@@ -333,7 +330,7 @@ void print_configuration(){
     printf("  freq=%d, sf=%d\n", freq, sf);
 }
 
-void init(){
+void init(void){
     //set up hardware
     setup_interrupt("rising"); //gpio4, input
     rstPin = gpio_init("/sys/class/gpio/gpio3/value", O_WRONLY); //gpio 3, output
@@ -364,7 +361,7 @@ void init(){
             ifr.ifr_hwaddr.sa_data[4],
             ifr.ifr_hwaddr.sa_data[5]);
 
-    printf("Listening at SF%i on %.6lf Mhz.\n", sf, (double)freq/1000000);
+    printf("Listening at SF%i on %.6lf Mhz.\n", sf, mhz);
     printf("-----------------------------------\n");
 }
 

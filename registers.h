@@ -22,7 +22,8 @@
 #define REG_HOP_PERIOD              0x24
 #define REG_SYNC_WORD               0x39
 #define REG_VERSION                 0x42
-#define REG_RSSI                    0x1A
+#define REG_RSSI                    0x1B
+#define REG_PKT_RSSI                0x1A
 
 #define SX72_MODE_RX_CONTINUOS      0x85
 #define SX72_MODE_TX                0x83
