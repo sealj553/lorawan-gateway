@@ -25,6 +25,7 @@
 #define REG_RSSI                    0x1B
 #define REG_PKT_RSSI                0x1A
 
+#define VERSION_SX1276              0x12
 #define SX72_MODE_RX_CONTINUOS      0x85
 #define SX72_MODE_TX                0x83
 #define SX72_MODE_SLEEP             0x80
