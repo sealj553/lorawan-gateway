@@ -24,7 +24,7 @@ uint32_t cp_nb_rx_rcv  = 0;
 uint32_t cp_nb_rx_ok   = 0;
 uint32_t cp_up_pkt_fwd = 0;
 
-int rstPin, intPin;
+int irqPin, rstPin, intPin;
 const double mhz = (double)freq/1000000;
 
 void print_configuration();
@@ -149,7 +149,7 @@ void setup_lora(){
     spi_write_reg(REG_FIFO_ADDR_PTR, spi_read_reg(REG_FIFO_RX_BASE_AD));
 
     //set Continous Receive Mode
-    spi_write_reg(REG_LNA, LNA_MAX_GAIN); //max lna gain
+    spi_write_reg(REG_LNA, LNA_MAX_GAIN);
     spi_write_reg(REG_OPMODE, MODE_RX_CONTINUOUS);
 }
 
@@ -214,13 +214,19 @@ void send_ack(const char *message){
 }
 
 bool receive_packet(void){
-    wait_irq();
+    //wait_irq();
+    if(!gpio_read(irqPin)){
+        return false;
+    }
 
     char message[256];
     uint8_t length;
     if(!read_data(message, &length)){
         return false;
     }
+    //if confirmed
+    send_ack(message);
+    puts("ack sent\n");
 
     long int SNR;
     uint8_t value = spi_read_reg(REG_PKT_SNR_VALUE);
@@ -288,7 +294,7 @@ bool receive_packet(void){
 
     int json_strlen = strlen(json_str);
 
-    // Build and send message.
+    //build and send message.
     memcpy(pkt + 12, json_str, json_strlen);
     for(int i = 0; i < numservers; ++i){
         send_udp(servers[i], pkt, HEADER_SIZE + json_strlen);
@@ -312,16 +318,15 @@ void print_configuration(){
 
 void init(void){
     //set up hardware
-    setup_interrupt("rising"); //gpio4, input
-    rstPin = gpio_init("/sys/class/gpio/gpio3/value", O_WRONLY); //gpio 3, output
+    ////setup_interrupt("rising"); //gpio4, input
+    irqPin = gpio_init("/sys/class/gpio/gpio4/value", O_RDONLY);//gpio 4, input
+    rstPin = gpio_init("/sys/class/gpio/gpio3/value", O_WRONLY);//gpio 3, output
     spi_init("/dev/spidev0.0", O_RDWR);
 
     //setup LoRa
     setup_lora();
-
     print_configuration();
-
-    prepare_socket();
+    init_socket();
 
     printf("Listening at SF%i on %.6lf Mhz.\n", sf, mhz);
     printf("-----------------------------------\n");
@@ -336,7 +341,7 @@ int main(){
         receive_packet();
 
         int nowseconds = seconds();
-        if(nowseconds - lasttime >= 30){
+        if(nowseconds - lasttime >= update_interval){
             lasttime = nowseconds;
             send_stat();
             cp_nb_rx_rcv  = 0;

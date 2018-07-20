@@ -25,4 +25,7 @@ static const int numservers = 2;
 static Server servers[]= { {"router.us.thethings.network", 1700},
                            {"iot.caribae.us", 8000} };
 
+//update interval in seconds
+static const unsigned int update_interval = 10;
+
 #endif

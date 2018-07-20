@@ -57,7 +57,7 @@ void send_udp(Server server, char *msg, int length){
     }
 }
 
-void prepare_socket(void){
+void init_socket(void){
     //prepare Socket connection
     if((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
         perror("socket");
