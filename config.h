@@ -5,8 +5,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-static const char *interface = "eth0";
-
 //location
 static const float lat = 42.36339;
 static const float lon = -71.09260;

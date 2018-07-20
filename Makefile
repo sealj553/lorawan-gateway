@@ -11,8 +11,8 @@ TARGET   = single_chan_pkt_fwd
 
 all: $(TARGET)
 
-$(TARGET): base64.o main.o spi.o gpio.o time_util.o
-	$(CC) main.o base64.o spi.o gpio.o time_util.o -o $(TARGET) $(LDFLAGS)
+$(TARGET): base64.o main.o spi.o gpio.o time_util.o net.o
+	$(CC) main.o base64.o spi.o gpio.o time_util.o net.o -o $(TARGET) $(LDFLAGS)
 
 main.o: main.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c main.c
@@ -28,6 +28,9 @@ gpio.o: gpio.c
 
 time_util.o: time_util.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c time_util.c
+
+net.o: net.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c net.c
 
 clean:
 	rm -f *.o $(TARGET)

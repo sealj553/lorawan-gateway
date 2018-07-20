@@ -3,21 +3,15 @@
 
 #include "registers.h"
 #include "config.h"
-
 #include "base64.h"
 #include "spi.h"
 #include "gpio.h"
 #include "time_util.h"
+#include "net.h"
 
 #include <jansson.h>
 
-#include <arpa/inet.h>
-#include <sys/ioctl.h>
-#include <net/if.h>
-#include <sys/socket.h>
 #include <sys/time.h>
-#include <sys/types.h>
-#include <netdb.h>
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -26,15 +20,9 @@
 #include <ctype.h>
 #include <time.h>
 
-struct sockaddr_in si_other;
-int sock;
-struct ifreq ifr;
-
-uint32_t cp_nb_rx_rcv    = 0;
-uint32_t cp_nb_rx_ok     = 0;
-uint32_t cp_nb_rx_bad    = 0;
-uint32_t cp_nb_rx_nocrc  = 0;
-uint32_t cp_up_pkt_fwd   = 0;
+uint32_t cp_nb_rx_rcv  = 0;
+uint32_t cp_nb_rx_ok   = 0;
+uint32_t cp_up_pkt_fwd = 0;
 
 int rstPin, intPin;
 const double mhz = (double)freq/1000000;
@@ -43,8 +31,6 @@ void print_configuration();
 void die(const char *s);
 bool read_data(char *payload, uint8_t *p_length);
 void setup_lora();
-void solve_hostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin);
-void send_udp(char *msg, int length);
 void send_stat();
 bool receive_packet(void);
 void init(void);
@@ -123,7 +109,7 @@ void setup_lora(){
     gpio_write(rstPin, 1);
     delay(100);
 
-    uint8_t version = spi_read_reg( REG_VERSION);
+    uint8_t version = spi_read_reg(REG_VERSION);
 
     printf("Transceiver version 0x%02X, ", version);
     if(version != SX1276_ID){ 
@@ -133,92 +119,38 @@ void setup_lora(){
         puts("SX1276 detected\n");
     }
 
-    spi_write_reg( REG_OPMODE, MODE_SLEEP);
+    spi_write_reg(REG_OPMODE, MODE_SLEEP);
 
     // set frequency
     uint64_t frf = ((uint64_t)freq << 19) / 32000000;
-    spi_write_reg( REG_FRF_MSB, frf >> 16);
-    spi_write_reg( REG_FRF_MID, frf >> 8);
-    spi_write_reg( REG_FRF_LSB, frf >> 0);
+    spi_write_reg(REG_FRF_MSB, frf >> 16);
+    spi_write_reg(REG_FRF_MID, frf >> 8);
+    spi_write_reg(REG_FRF_LSB, frf >> 0);
 
     //LoRaWAN public sync word
-    spi_write_reg( REG_SYNC_WORD, 0x34);
+    spi_write_reg(REG_SYNC_WORD, 0x34);
 
     if(sf == 11 || sf == 12){
-        spi_write_reg( REG_MODEM_CONFIG3, 0x0C);
+        spi_write_reg(REG_MODEM_CONFIG3, 0x0C);
     } else {
-        spi_write_reg( REG_MODEM_CONFIG3, 0x04);
+        spi_write_reg(REG_MODEM_CONFIG3, 0x04);
     }
-    spi_write_reg( REG_MODEM_CONFIG, 0x72);
-    spi_write_reg( REG_MODEM_CONFIG2, (sf << 4) | 0x04);
+    spi_write_reg(REG_MODEM_CONFIG, 0x72);
+    spi_write_reg(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
 
     if(sf == 10 || sf == 11 || sf == 12){
-        spi_write_reg( REG_SYMB_TIMEOUT_LSB, 0x05);
+        spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x05);
     } else {
-        spi_write_reg( REG_SYMB_TIMEOUT_LSB, 0x08);
+        spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x08);
     }
-    spi_write_reg( REG_MAX_PAYLOAD_LENGTH, 0x80);
-    spi_write_reg( REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
-    spi_write_reg( REG_HOP_PERIOD, 0xFF);
-    spi_write_reg( REG_FIFO_ADDR_PTR, spi_read_reg( REG_FIFO_RX_BASE_AD));
+    spi_write_reg(REG_MAX_PAYLOAD_LENGTH, 0x80);
+    spi_write_reg(REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
+    spi_write_reg(REG_HOP_PERIOD, 0xFF);
+    spi_write_reg(REG_FIFO_ADDR_PTR, spi_read_reg(REG_FIFO_RX_BASE_AD));
 
     //set Continous Receive Mode
-    spi_write_reg( REG_LNA, LNA_MAX_GAIN); //max lna gain
-    spi_write_reg( REG_OPMODE, MODE_RX_CONTINUOUS);
-}
-
-void solve_hostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin){
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family   = AF_INET;
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_protocol = IPPROTO_UDP;
-
-    char service[6] = { '\0' };
-    snprintf(service, 6, "%hu", port);
-
-    struct addrinfo *p_result = NULL;
-
-    //resolve the domain name into a list of addresses
-    int error = getaddrinfo(p_hostname, service, &hints, &p_result);
-    if(error != 0){
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(error));
-        exit(EXIT_FAILURE);
-    }
-
-    //loop over all returned results
-    for(struct addrinfo *p_rp = p_result; p_rp != NULL; p_rp = p_rp->ai_next) {
-        struct sockaddr_in *p_saddr = (struct sockaddr_in*)p_rp->ai_addr;
-        //printf("%s solved to %s\n", p_hostname, inet_ntoa(p_saddr->sin_addr));
-        p_sin->sin_addr = p_saddr->sin_addr;
-    }
-
-    freeaddrinfo(p_result);
-}
-
-void send_udp(char *msg, int length){
-    for(int i = 0; i < numservers; ++i){
-        si_other.sin_port = htons(servers[i].port);
-        solve_hostname(servers[i].address, servers[i].port, &si_other);
-        if(sendto(sock, msg, length, 0, (struct sockaddr*) &si_other, sizeof(si_other)) == -1){
-            die("sendto()");
-        }
-    }
-}
-
-void fill_pkt_header(char *pkt){
-    pkt[0]  = PROTOCOL_VERSION;
-    pkt[1]  = rand(); //random tokens
-    pkt[2]  = rand();
-    pkt[3]  = PKT_PUSH_DATA;
-    pkt[4]  = ifr.ifr_hwaddr.sa_data[0];
-    pkt[5]  = ifr.ifr_hwaddr.sa_data[1];
-    pkt[6]  = ifr.ifr_hwaddr.sa_data[2];
-    pkt[7]  = 0xFF;
-    pkt[8]  = 0xFF;
-    pkt[9]  = ifr.ifr_hwaddr.sa_data[3];
-    pkt[10] = ifr.ifr_hwaddr.sa_data[4];
-    pkt[11] = ifr.ifr_hwaddr.sa_data[5];
+    spi_write_reg(REG_LNA, LNA_MAX_GAIN); //max lna gain
+    spi_write_reg(REG_OPMODE, MODE_RX_CONTINUOUS);
 }
 
 void send_stat(){
@@ -263,7 +195,9 @@ void send_stat(){
 
     //build and send message
     memcpy(status_pkt + HEADER_SIZE, json_str, json_strlen);
-    send_udp(status_pkt, HEADER_SIZE + json_strlen);
+    for(int i = 0; i < numservers; ++i){
+        send_udp(servers[i], status_pkt, HEADER_SIZE + json_strlen);
+    }
 
     //free json memory
     json_decref(root);
@@ -289,7 +223,7 @@ bool receive_packet(void){
     }
 
     long int SNR;
-    uint8_t value = spi_read_reg( REG_PKT_SNR_VALUE);
+    uint8_t value = spi_read_reg(REG_PKT_SNR_VALUE);
     //the SNR sign bit is 1
     if(value & 0x80){
         //invert and divide by 4
@@ -304,7 +238,7 @@ bool receive_packet(void){
     int rssi = spi_read_reg(REG_PKT_RSSI) - rssicorr;
 
     printf("Packet RSSI: %d, ", rssi);
-    printf("RSSI: %d, ", spi_read_reg( REG_RSSI) - rssicorr);
+    printf("RSSI: %d, ", spi_read_reg(REG_RSSI) - rssicorr);
     printf("SNR: %li, ", SNR);
     printf("Length: %hhu Message:'", length);
     for(int i = 0; i < length; ++i){
@@ -356,7 +290,9 @@ bool receive_packet(void){
 
     // Build and send message.
     memcpy(pkt + 12, json_str, json_strlen);
-    send_udp(pkt, HEADER_SIZE + json_strlen);
+    for(int i = 0; i < numservers; ++i){
+        send_udp(servers[i], pkt, HEADER_SIZE + json_strlen);
+    }
 
     //free json memory
     json_decref(root);
@@ -385,25 +321,7 @@ void init(void){
 
     print_configuration();
 
-    //prepare Socket connection
-    if((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1){
-        die("socket");
-    }
-
-    memset(&si_other, 0, sizeof(si_other));
-    si_other.sin_family = AF_INET;
-    ifr.ifr_addr.sa_family = AF_INET;
-    strncpy(ifr.ifr_name, interface, IFNAMSIZ - 1);
-    ioctl(sock, SIOCGIFHWADDR, &ifr);
-
-    //ID based on MAC Adddress of eth0
-    printf("Gateway ID: %.2x:%.2x:%.2x:ff:ff:%.2x:%.2x:%.2x\n",
-            ifr.ifr_hwaddr.sa_data[0],
-            ifr.ifr_hwaddr.sa_data[1],
-            ifr.ifr_hwaddr.sa_data[2],
-            ifr.ifr_hwaddr.sa_data[3],
-            ifr.ifr_hwaddr.sa_data[4],
-            ifr.ifr_hwaddr.sa_data[5]);
+    prepare_socket();
 
     printf("Listening at SF%i on %.6lf Mhz.\n", sf, mhz);
     printf("-----------------------------------\n");
