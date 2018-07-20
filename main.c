@@ -334,9 +334,9 @@ void init(void){
 
 int main(){
     init();
+    send_stat();
 
     uint32_t lasttime = seconds();
-
     while(1){
         receive_packet();
 
