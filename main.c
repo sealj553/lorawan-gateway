@@ -42,7 +42,7 @@ const double mhz = (double)freq/1000000;
 
 void print_configuration();
 void die(const char *s);
-bool get_packet_data(char *payload, uint8_t *p_length);
+bool read_data(char *payload, uint8_t *p_length);
 void setup_lora();
 void solve_hostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin);
 void send_udp(char *msg, int length);
@@ -56,32 +56,67 @@ void die(const char *s){
     exit(1);
 }
 
-bool get_packet_data(char *payload, uint8_t *p_length){
+bool read_data(char *payload, uint8_t *p_length){
     //clear rxDone
     spi_write_reg(REG_IRQ_FLAGS, PAYLOAD_LENGTH);
 
-    int irqflags = spi_read_reg( REG_IRQ_FLAGS);
+    int irqflags = spi_read_reg(REG_IRQ_FLAGS);
     ++cp_nb_rx_rcv;
 
     if((irqflags & PAYLOAD_CRC) == PAYLOAD_CRC) {
         puts("CRC error");
-        spi_write_reg( REG_IRQ_FLAGS, PAYLOAD_CRC);
+        spi_write_reg(REG_IRQ_FLAGS, PAYLOAD_CRC);
         return false;
     } else {
         ++cp_nb_rx_ok;
         ++cp_nb_rx_ok_tot;
 
-        uint8_t currentAddr = spi_read_reg( REG_FIFO_RX_CURRENT_ADDR);
-        uint8_t receivedCount = spi_read_reg( REG_RX_NB_BYTES);
+        uint8_t currentAddr = spi_read_reg(REG_FIFO_RX_CURRENT_ADDR);
+        uint8_t receivedCount = spi_read_reg(REG_RX_NB_BYTES);
         *p_length = receivedCount;
 
-        spi_write_reg( REG_FIFO_ADDR_PTR, currentAddr);
+        spi_write_reg(REG_FIFO_ADDR_PTR, currentAddr);
 
         for(int i = 0; i < receivedCount; ++i){
             payload[i] = spi_read_reg( REG_FIFO);
         }
     }
     return true;
+}
+
+size_t write_data(const char *buffer, int size){
+    //idle/standby mode
+    spi_write_reg(REG_OPMODE, MODE_LONG_RANGE_MODE | MODE_STDBY);
+
+    // reset FIFO address and paload length
+    spi_write_reg(REG_FIFO_ADDR_PTR, 0);
+    spi_write_reg(REG_PAYLOAD_LENGTH, 0);
+
+    int currentLength = spi_read_reg(REG_PAYLOAD_LENGTH);
+
+    //check size
+    if((currentLength + size) > MAX_PKT_LENGTH){
+        size = MAX_PKT_LENGTH - currentLength;
+    }
+
+    //write data
+    for(int i = 0; i < size; ++i){
+        spi_write_reg(REG_FIFO, buffer[i]);
+    }
+
+    //update length
+    spi_write_reg(REG_PAYLOAD_LENGTH, currentLength + size);
+
+    //put in TX mode
+    spi_write_reg(REG_OPMODE, MODE_LONG_RANGE_MODE | MODE_TX);
+
+    //wait for TX done
+    while((spi_read_reg(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK) == 0);
+
+    // clear IRQ's
+    spi_write_reg(REG_IRQ_FLAGS, IRQ_TX_DONE_MASK);
+
+    return size;
 }
 
 void setup_lora(){
@@ -236,40 +271,14 @@ void send_stat(){
     json_decref(root);
 }
 
-size_t write_data(const char *buffer, int size){
-  int currentLength = spi_read_reg(REG_PAYLOAD_LENGTH);
-
-  //check size
-  if((currentLength + size) > MAX_PKT_LENGTH){
-    size = MAX_PKT_LENGTH - currentLength;
-  }
-
-  // write data
-  for(int i = 0; i < size; ++i){
-    spi_write_reg(REG_FIFO, buffer[i]);
-  }
-
-  // update length
-  spi_write_reg(REG_PAYLOAD_LENGTH, currentLength + size);
-
-  return size;
-}
-
 void send_ack(const char *message){
-    char pkt[4];
+    char pkt[ACK_HEADER_SIZE];
     pkt[0] = PROTOCOL_VERSION;
     pkt[1] = message[1];
     pkt[2] = message[2];
     pkt[3] = PKT_PUSH_ACK;
 
-    ///spi_write_reg(REG_FIFO_TX_BASE_AD);
-
-    //idle mode
-    spi_write_reg(REG_OPMODE, MODE_LONG_RANGE_MODE | MODE_STDBY);
-
-    // reset FIFO address and paload length
-    spi_write_reg(REG_FIFO_ADDR_PTR, 0);
-    spi_write_reg(REG_PAYLOAD_LENGTH, 0);
+    write_data(pkt, ACK_HEADER_SIZE);
 }
 
 bool receive_packet(void){
@@ -277,7 +286,7 @@ bool receive_packet(void){
 
     char message[256];
     uint8_t length;
-    if(!get_packet_data(message, &length)){
+    if(!read_data(message, &length)){
         return false;
     }
 
@@ -294,7 +303,7 @@ bool receive_packet(void){
     }
 
     const int rssicorr = 157;
-    int rssi = spi_read_reg( REG_PKT_RSSI) - rssicorr;
+    int rssi = spi_read_reg(REG_PKT_RSSI) - rssicorr;
 
     printf("Packet RSSI: %d, ", rssi);
     printf("RSSI: %d, ", spi_read_reg( REG_RSSI) - rssicorr);

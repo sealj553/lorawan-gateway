@@ -26,6 +26,8 @@
 #define REG_PKT_RSSI                0x1A
 
 #define SX1276_ID                   0x12
+
+//where do these values even come from? not the datasheet...
 //#define SX72_MODE_RX_CONTINUOS      0x85
 //#define SX72_MODE_TX                0x83
 //#define SX72_MODE_SLEEP             0x80
@@ -52,25 +54,12 @@
 #define REG1                        0x0A
 #define REG2                        0x84
 
-#define SX72_MC2_FSK                0x00
-#define SX72_MC2_SF7                0x70
-#define SX72_MC2_SF8                0x80
-#define SX72_MC2_SF9                0x90
-#define SX72_MC2_SF10               0xA0
-#define SX72_MC2_SF11               0xB0
-#define SX72_MC2_SF12               0xC0
-
 #define SX72_MC1_LOW_DATA_RATE_OPTIMIZE  0x01 // mandated for SF11 and SF12
 
 // FRF
 #define REG_FRF_MSB                 0x06
 #define REG_FRF_MID                 0x07
 #define REG_FRF_LSB                 0x08
-
-//868.1 Mhz
-//#define FRF_MSB                  0xD9
-//#define FRF_MID                  0x06
-//#define FRF_LSB                  0x66
 
 //Max length of buffer
 #define BUFLEN                      2048
@@ -88,5 +77,11 @@
 #define STATUS_SIZE                 1024
 #define BASE64_MAX_LENGTH           341
 #define HEADER_SIZE                 12
+#define ACK_HEADER_SIZE             4
+
+// IRQ masks
+#define IRQ_TX_DONE_MASK           0x08
+#define IRQ_PAYLOAD_CRC_ERROR_MASK 0x20
+#define IRQ_RX_DONE_MASK           0x40
 
 #endif
