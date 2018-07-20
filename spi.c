@@ -20,22 +20,22 @@
 ///#define CH341_SPI_MAX_FREQ          1e6
 ///max sx1276 freq = 10Mhz
 
-int spi_init(const char *devname, mode_t mode){
-    int fd;
+int fd;
+
+void spi_init(const char *devname, mode_t mode){
     if((fd = open(devname, mode)) == -1){
         perror("open");
         exit(1);
     }
-    return fd;
 }
 
-void spi_close(int fd){
+void spi_close(void){
     if(close(fd) == -1){
         perror("close");
     }
 }
 
-uint8_t spi_read_reg(int fd, uint8_t reg){
+uint8_t spi_read_reg(uint8_t reg){
     char mosi[2] = { reg & 0x7F, 0x00 };
     char miso[2] = { 0x00 };
 
@@ -53,7 +53,7 @@ uint8_t spi_read_reg(int fd, uint8_t reg){
     return miso[1];
 }
 
-int spi_write_reg(int fd, uint8_t reg, uint8_t value){
+int spi_write_reg(uint8_t reg, uint8_t value){
     char mosi[2] = { reg | 0x80, value };
 
     struct spi_ioc_transfer spi_trans;

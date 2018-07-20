@@ -37,7 +37,7 @@ uint32_t cp_nb_rx_bad    = 0;
 uint32_t cp_nb_rx_nocrc  = 0;
 uint32_t cp_up_pkt_fwd   = 0;
 
-int rstPin, intPin, spi;
+int rstPin, intPin;
 const double mhz = (double)freq/1000000;
 
 void print_configuration();
@@ -49,6 +49,7 @@ void send_udp(char *msg, int length);
 void send_stat();
 bool receive_packet(void);
 void init(void);
+void send_ack(const char *message);
 
 void die(const char *s){
     perror(s);
@@ -57,27 +58,27 @@ void die(const char *s){
 
 bool get_packet_data(char *payload, uint8_t *p_length){
     //clear rxDone
-    spi_write_reg(spi, REG_IRQ_FLAGS, PAYLOAD_LENGTH);
+    spi_write_reg(REG_IRQ_FLAGS, PAYLOAD_LENGTH);
 
-    int irqflags = spi_read_reg(spi, REG_IRQ_FLAGS);
+    int irqflags = spi_read_reg( REG_IRQ_FLAGS);
     ++cp_nb_rx_rcv;
 
     if((irqflags & PAYLOAD_CRC) == PAYLOAD_CRC) {
         puts("CRC error");
-        spi_write_reg(spi, REG_IRQ_FLAGS, PAYLOAD_CRC);
+        spi_write_reg( REG_IRQ_FLAGS, PAYLOAD_CRC);
         return false;
     } else {
         ++cp_nb_rx_ok;
         ++cp_nb_rx_ok_tot;
 
-        uint8_t currentAddr = spi_read_reg(spi, REG_FIFO_RX_CURRENT_ADDR);
-        uint8_t receivedCount = spi_read_reg(spi, REG_RX_NB_BYTES);
+        uint8_t currentAddr = spi_read_reg( REG_FIFO_RX_CURRENT_ADDR);
+        uint8_t receivedCount = spi_read_reg( REG_RX_NB_BYTES);
         *p_length = receivedCount;
 
-        spi_write_reg(spi, REG_FIFO_ADDR_PTR, currentAddr);
+        spi_write_reg( REG_FIFO_ADDR_PTR, currentAddr);
 
         for(int i = 0; i < receivedCount; ++i){
-            payload[i] = spi_read_reg(spi, REG_FIFO);
+            payload[i] = spi_read_reg( REG_FIFO);
         }
     }
     return true;
@@ -89,48 +90,48 @@ void setup_lora(){
     gpio_write(rstPin, 1);
     delay(100);
 
-    uint8_t version = spi_read_reg(spi, REG_VERSION);
+    uint8_t version = spi_read_reg( REG_VERSION);
 
     printf("Transceiver version 0x%02X, ", version);
-    if(version != VERSION_SX1276){ 
+    if(version != SX1276_ID){ 
         puts("Unrecognized transceiver");
         exit(1);
     } else {
         puts("SX1276 detected\n");
     }
 
-    spi_write_reg(spi, REG_OPMODE, SX72_MODE_SLEEP);
+    spi_write_reg( REG_OPMODE, MODE_SLEEP);
 
     // set frequency
     uint64_t frf = ((uint64_t)freq << 19) / 32000000;
-    spi_write_reg(spi, REG_FRF_MSB, frf >> 16);
-    spi_write_reg(spi, REG_FRF_MID, frf >> 8);
-    spi_write_reg(spi, REG_FRF_LSB, frf >> 0);
+    spi_write_reg( REG_FRF_MSB, frf >> 16);
+    spi_write_reg( REG_FRF_MID, frf >> 8);
+    spi_write_reg( REG_FRF_LSB, frf >> 0);
 
     //LoRaWAN public sync word
-    spi_write_reg(spi, REG_SYNC_WORD, 0x34);
+    spi_write_reg( REG_SYNC_WORD, 0x34);
 
     if(sf == 11 || sf == 12){
-        spi_write_reg(spi, REG_MODEM_CONFIG3, 0x0C);
+        spi_write_reg( REG_MODEM_CONFIG3, 0x0C);
     } else {
-        spi_write_reg(spi, REG_MODEM_CONFIG3, 0x04);
+        spi_write_reg( REG_MODEM_CONFIG3, 0x04);
     }
-    spi_write_reg(spi, REG_MODEM_CONFIG, 0x72);
-    spi_write_reg(spi, REG_MODEM_CONFIG2, (sf << 4) | 0x04);
+    spi_write_reg( REG_MODEM_CONFIG, 0x72);
+    spi_write_reg( REG_MODEM_CONFIG2, (sf << 4) | 0x04);
 
     if(sf == 10 || sf == 11 || sf == 12){
-        spi_write_reg(spi, REG_SYMB_TIMEOUT_LSB, 0x05);
+        spi_write_reg( REG_SYMB_TIMEOUT_LSB, 0x05);
     } else {
-        spi_write_reg(spi, REG_SYMB_TIMEOUT_LSB, 0x08);
+        spi_write_reg( REG_SYMB_TIMEOUT_LSB, 0x08);
     }
-    spi_write_reg(spi, REG_MAX_PAYLOAD_LENGTH, 0x80);
-    spi_write_reg(spi, REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
-    spi_write_reg(spi, REG_HOP_PERIOD, 0xFF);
-    spi_write_reg(spi, REG_FIFO_ADDR_PTR, spi_read_reg(spi, REG_FIFO_RX_BASE_AD));
+    spi_write_reg( REG_MAX_PAYLOAD_LENGTH, 0x80);
+    spi_write_reg( REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
+    spi_write_reg( REG_HOP_PERIOD, 0xFF);
+    spi_write_reg( REG_FIFO_ADDR_PTR, spi_read_reg( REG_FIFO_RX_BASE_AD));
 
     //set Continous Receive Mode
-    spi_write_reg(spi, REG_LNA, LNA_MAX_GAIN); //max lna gain
-    spi_write_reg(spi, REG_OPMODE, SX72_MODE_RX_CONTINUOS);
+    spi_write_reg( REG_LNA, LNA_MAX_GAIN); //max lna gain
+    spi_write_reg( REG_OPMODE, MODE_RX_CONTINUOUS);
 }
 
 void solve_hostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin){
@@ -235,6 +236,42 @@ void send_stat(){
     json_decref(root);
 }
 
+size_t write_data(const char *buffer, int size){
+  int currentLength = spi_read_reg(REG_PAYLOAD_LENGTH);
+
+  //check size
+  if((currentLength + size) > MAX_PKT_LENGTH){
+    size = MAX_PKT_LENGTH - currentLength;
+  }
+
+  // write data
+  for(int i = 0; i < size; ++i){
+    spi_write_reg(REG_FIFO, buffer[i]);
+  }
+
+  // update length
+  spi_write_reg(REG_PAYLOAD_LENGTH, currentLength + size);
+
+  return size;
+}
+
+void send_ack(const char *message){
+    char pkt[4];
+    pkt[0] = PROTOCOL_VERSION;
+    pkt[1] = message[1];
+    pkt[2] = message[2];
+    pkt[3] = PKT_PUSH_ACK;
+
+    ///spi_write_reg(REG_FIFO_TX_BASE_AD);
+
+    //idle mode
+    spi_write_reg(REG_OPMODE, MODE_LONG_RANGE_MODE | MODE_STDBY);
+
+    // reset FIFO address and paload length
+    spi_write_reg(REG_FIFO_ADDR_PTR, 0);
+    spi_write_reg(REG_PAYLOAD_LENGTH, 0);
+}
+
 bool receive_packet(void){
     wait_irq();
 
@@ -245,7 +282,7 @@ bool receive_packet(void){
     }
 
     long int SNR;
-    uint8_t value = spi_read_reg(spi, REG_PKT_SNR_VALUE);
+    uint8_t value = spi_read_reg( REG_PKT_SNR_VALUE);
     //the SNR sign bit is 1
     if(value & 0x80){
         //invert and divide by 4
@@ -257,10 +294,10 @@ bool receive_packet(void){
     }
 
     const int rssicorr = 157;
-    int rssi = spi_read_reg(spi, REG_PKT_RSSI) - rssicorr;
+    int rssi = spi_read_reg( REG_PKT_RSSI) - rssicorr;
 
     printf("Packet RSSI: %d, ", rssi);
-    printf("RSSI: %d, ", spi_read_reg(spi, REG_RSSI) - rssicorr);
+    printf("RSSI: %d, ", spi_read_reg( REG_RSSI) - rssicorr);
     printf("SNR: %li, ", SNR);
     printf("Length: %hhu Message:'", length);
     for(int i = 0; i < length; ++i){
@@ -334,7 +371,7 @@ void init(void){
     //set up hardware
     setup_interrupt("rising"); //gpio4, input
     rstPin = gpio_init("/sys/class/gpio/gpio3/value", O_WRONLY); //gpio 3, output
-    spi = spi_init("/dev/spidev0.0", O_RDWR);
+    spi_init("/dev/spidev0.0", O_RDWR);
 
     //setup LoRa
     setup_lora();

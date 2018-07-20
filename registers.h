@@ -1,5 +1,5 @@
 #ifndef REGISTERS_H
-#define  REGISTERS_H
+#define REGISTERS_H
 
 #define REG_FIFO                    0x00
 #define REG_FIFO_ADDR_PTR           0x0D
@@ -25,11 +25,19 @@
 #define REG_RSSI                    0x1B
 #define REG_PKT_RSSI                0x1A
 
-#define VERSION_SX1276              0x12
-#define SX72_MODE_RX_CONTINUOS      0x85
-#define SX72_MODE_TX                0x83
-#define SX72_MODE_SLEEP             0x80
-#define SX72_MODE_STANDBY           0x81
+#define SX1276_ID                   0x12
+//#define SX72_MODE_RX_CONTINUOS      0x85
+//#define SX72_MODE_TX                0x83
+//#define SX72_MODE_SLEEP             0x80
+//#define SX72_MODE_STANDBY           0x81
+
+// modes
+#define MODE_LONG_RANGE_MODE        0x80
+#define MODE_SLEEP                  0x00
+#define MODE_STDBY                  0x01
+#define MODE_TX                     0x03
+#define MODE_RX_CONTINUOUS          0x05
+#define MODE_RX_SINGLE              0x06
 
 #define PAYLOAD_LENGTH              0x40
 #define PAYLOAD_CRC                 0x20
@@ -66,6 +74,7 @@
 
 //Max length of buffer
 #define BUFLEN                      2048
+#define MAX_PKT_LENGTH              255
 
 #define PROTOCOL_VERSION            1
 #define PKT_PUSH_DATA               0
