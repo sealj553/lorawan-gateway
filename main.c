@@ -32,7 +32,6 @@ struct ifreq ifr;
 
 uint32_t cp_nb_rx_rcv    = 0;
 uint32_t cp_nb_rx_ok     = 0;
-uint32_t cp_nb_rx_ok_tot = 0;
 uint32_t cp_nb_rx_bad    = 0;
 uint32_t cp_nb_rx_nocrc  = 0;
 uint32_t cp_up_pkt_fwd   = 0;
@@ -67,20 +66,19 @@ bool read_data(char *payload, uint8_t *p_length){
         puts("CRC error");
         spi_write_reg(REG_IRQ_FLAGS, PAYLOAD_CRC);
         return false;
-    } else {
-        ++cp_nb_rx_ok;
-        ++cp_nb_rx_ok_tot;
-
-        uint8_t currentAddr = spi_read_reg(REG_FIFO_RX_CURRENT_ADDR);
-        uint8_t receivedCount = spi_read_reg(REG_RX_NB_BYTES);
-        *p_length = receivedCount;
-
-        spi_write_reg(REG_FIFO_ADDR_PTR, currentAddr);
-
-        for(int i = 0; i < receivedCount; ++i){
-            payload[i] = spi_read_reg( REG_FIFO);
-        }
     }
+
+    ++cp_nb_rx_ok;
+
+    uint8_t receivedCount = spi_read_reg(REG_RX_NB_BYTES);
+    *p_length = receivedCount;
+
+    spi_write_reg(REG_FIFO_ADDR_PTR, spi_read_reg(REG_FIFO_RX_CURRENT_ADDR));
+
+    for(int i = 0; i < receivedCount; ++i){
+        payload[i] = spi_read_reg(REG_FIFO);
+    }
+
     return true;
 }
 
@@ -255,10 +253,10 @@ void send_stat(){
     printf("stat update: %s\n", json_str);
 
     printf("stat update: %s", stat_timestamp);
-    if(cp_nb_rx_ok_tot == 0){
+    if(cp_nb_rx_ok == 0){
         printf(" no packet received yet\n");
     } else {
-        printf(" %u packet%sreceived\n", cp_nb_rx_ok_tot, cp_nb_rx_ok_tot > 1 ? "s " : " ");
+        printf(" %u packet%sreceived\n", cp_nb_rx_ok, cp_nb_rx_ok > 1 ? "s " : " ");
     }
 
     int json_strlen = strlen(json_str);
