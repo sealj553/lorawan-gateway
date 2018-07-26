@@ -12,7 +12,6 @@ It was originally forked from [hallard/single_chan_pkt_fwd](https://github.com/h
 * Edit `config.h` to change various options
 
 ## Dependencies
-[jansson](https://github.com/akheron/jansson) for packing json data
 [protobuf-c](https://github.com/protobuf-c/protobuf-c) and [protobuf-c-rpc](https://github.com/protobuf-c/protobuf-c-rpc) for packing and sending data
 
 You also need gschorcht's [spi-ch341-usb](https://github.com/gschorcht/spi-ch341-usb) kernel module installed.
