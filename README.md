@@ -21,6 +21,7 @@ You also need gschorcht's [spi-ch341-usb](https://github.com/gschorcht/spi-ch341
 ```shell
 git clone https://github.com/sealj553/single_chan_pkt_fwd.git
 cd single_chan_pkt_fwd
+make protoc
 make
 sudo ./single_chan_pkt_fwd
 ```

@@ -9,6 +9,7 @@
 #include "time_util.h"
 #include "net.h"
 
+#include <protobuf-c.h>
 #include <protobuf-c-rpc.h>
 
 #include "github.com/TheThingsNetwork/api/gateway/gateway.pb-c.h"
@@ -210,7 +211,7 @@ void send_stat(){
     ProtobufC_RPC_Client *client;
     ProtobufC_RPC_AddressType address_type = PROTOBUF_C_RPC_ADDRESS_TCP;
 
-    service = protobuf_c_rpc_client_new(address_type, discoveryServer, &foo__dir_lookup__descriptor, NULL);
+    service = protobuf_c_rpc_client_new(address_type, discoveryServer, &router__router__descriptor, NULL);
     if(!service){
         puts("error creating RPC client");
     }
@@ -232,11 +233,11 @@ void send_stat(){
         if(fgets (buf, sizeof (buf), stdin) == NULL){
             break;
         }
-        if(is_whitespace(buf)){
-            continue;
-        }
+        //if(is_whitespace(buf)){
+        //    continue;
+        //}
 
-        chomp_trailing_whitespace(buf);
+        //chomp_trailing_whitespace(buf);
         query.name = buf;
         foo__dir_lookup__by_name(service, &query, handle_query_response, &is_done);
 
