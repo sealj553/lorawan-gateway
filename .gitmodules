@@ -1,18 +1,12 @@
-[submodule "lib/gateway-connector-bridge"]
-	path = lib/gateway-connector-bridge
-	url = https://github.com/TheThingsNetwork/gateway-connector-bridge.git
-[submodule "lib/api"]
-	path = lib/api
-	url = https://github.com/TheThingsNetwork/api.git
-[submodule "github.com/api"]
-	path = github.com/api
-	url = https://github.com/TheThingsNetwork/api.git
 [submodule "github.com/TheThingsNetwork/api"]
 	path = github.com/TheThingsNetwork/api
 	url = https://github.com/TheThingsNetwork/api.git
-[submodule "github.com/gogo/protobuf"]
-	path = github.com/gogo/protobuf
-	url = https://github.com/gogo/protobuf.git
+    ignore = dirty
 [submodule "github.com/TheThingsNetwork/gateway-connector-bridge"]
 	path = github.com/TheThingsNetwork/gateway-connector-bridge
 	url = https://github.com/TheThingsNetwork/gateway-connector-bridge.git
+    ignore = dirty
+[submodule "github.com/gogo/protobuf"]
+	path = github.com/gogo/protobuf
+	url = https://github.com/gogo/protobuf.git
+    ignore = dirty
