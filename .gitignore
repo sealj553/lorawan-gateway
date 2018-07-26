@@ -1,3 +1,6 @@
 single_chan_pkt_fwd
 *.o
 proto
+github.com/TheThingsNetwork/api
+github.com/TheThingsNetwork/gateway-connector-bridge
+github.com/gogo/protobuf
