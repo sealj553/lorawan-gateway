@@ -206,17 +206,6 @@ void send_stat(){
 
 
 
-
-
-
-    /*ProtobufCService * protobuf_c_rpc_client_new(
-      PROTOBUF_C_RPC_ADDRESS_TCP,
-      const char                       *name,
-      const ProtobufCServiceDescriptor *descriptor,
-      ProtobufCDispatch                *dispatch);*/
-
-
-
     ProtobufCService *service;
     ProtobufC_RPC_Client *client;
     ProtobufC_RPC_AddressType address_type = PROTOBUF_C_RPC_ADDRESS_TCP;
@@ -255,36 +244,6 @@ void send_stat(){
             protobuf_c_dispatch_run (protobuf_c_dispatch_default ());
         }
     }
-    return 0;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 }
 

@@ -14,15 +14,15 @@ static const char *platform    = "single-channel-gateway";     //platform defini
 static const char *email       = "IoTNet@mit.edu";             //used for contact email
 static const char *description = "RPI Single Channel Gateway"; //used for free form description
 
-//spreading factor (SF7 - SF12), center frequency
-static const uint16_t bw = 125;
-static const uint32_t freq = 916800000;
-static const int sf = 7;
+//radio config
+static const uint16_t bw   = 125;
+static const uint32_t freq = 916800000; //center frequency for US915, I think...
+static const int sf        = 7; //spreading factor (SF7-SF12)
 
 //servers
-static const char *accountServer = "https://account.thethingsnetwork.org";
+static const char *accountServer   = "https://account.thethingsnetwork.org";
 static const char *discoveryServer = "discovery.thethings.network:1900";
-static const char *routerID = "ttn-router-eu";
+static const char *routerID        = "ttn-router-eu";
 
 //update interval in seconds
 static const unsigned int update_interval = 10;
