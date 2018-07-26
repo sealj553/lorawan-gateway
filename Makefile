@@ -1,10 +1,9 @@
-# single_chan_pkt_fwd
 # Single Channel LoRaWAN Gateway
 
 CC       = gcc
 LDFLAGS  = -lprotobuf-c -lprotobuf-c-rpc
 CPPFLAGS = -std=gnu11
-INCLUDE  = -I/usr/include/protobuf-c -I/usr/include/protobuf-c-rpc -I./
+INCLUDE  = -I/usr/include/protobuf-c -I/usr/include/protobuf-c-rpc -Igithub.com/gogo/protobuf/protobuf -I./
 CFLAGS   = -Wall -Wextra -Wfatal-errors $(INCLUDE)
 TARGET   = single_chan_pkt_fwd
 
