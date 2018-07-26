@@ -1,7 +1,6 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include "server.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -21,9 +20,9 @@ static const uint32_t freq = 916800000;
 static const int sf = 7;
 
 //servers
-static const int numservers = 2;
-static Server servers[]= { {"router.us.thethings.network", 1700},
-                           {"iot.caribae.us", 8000} };
+static const char *accountServer = "https://account.thethingsnetwork.org";
+static const char *discoveryServer = "discovery.thethings.network:1900";
+static const char *routerID = "ttn-router-eu";
 
 //update interval in seconds
 static const unsigned int update_interval = 10;

@@ -9,7 +9,8 @@
 #include "time_util.h"
 #include "net.h"
 
-#include <jansson.h>
+//#include <google/protobuf-c/protobuf-c-rpc.h>
+#include <protobuf-c-rpc.h>
 
 #include <sys/time.h>
 
@@ -157,32 +158,32 @@ void send_stat(){
     //status report packet
     char status_pkt[STATUS_SIZE];
 
-    fill_pkt_header(status_pkt);
+    //fill_pkt_header(status_pkt);
 
     //get timestamp for statistics
     char stat_timestamp[24];
     time_t t = time(NULL);
     strftime(stat_timestamp, sizeof(stat_timestamp), "%F %T %Z", gmtime(&t));
 
-    json_t *root = json_object();
-    json_object_set_new(root, "stat", 
-            json_pack("{ss,sf,sf,si,si,si,si,sf,si,si,ss,ss,ss}",
-                "time", stat_timestamp, //string
-                "lati", lat,            //double
-                "long", lon,            //double
-                "alti", alt,            //int
-                "rxnb", cp_nb_rx_rcv,   //uint
-                "rxok", cp_nb_rx_ok,    //uint
-                "rxfw", cp_up_pkt_fwd,  //uint
-                "ackr", 0.f,            //double
-                "dwnb", 0,              //uint
-                "txnb", 0,              //uint
-                "pfrm", platform,       //string
-                "mail", email,          //string
-                "desc", description));  //string
+    //json_t *root = json_object();
+    //json_object_set_new(root, "stat", 
+    //        json_pack("{ss,sf,sf,si,si,si,si,sf,si,si,ss,ss,ss}",
+    //            "time", stat_timestamp, //string
+    //            "lati", lat,            //double
+    //            "long", lon,            //double
+    //            "alti", alt,            //int
+    //            "rxnb", cp_nb_rx_rcv,   //uint
+    //            "rxok", cp_nb_rx_ok,    //uint
+    //            "rxfw", cp_up_pkt_fwd,  //uint
+    //            "ackr", 0.f,            //double
+    //            "dwnb", 0,              //uint
+    //            "txnb", 0,              //uint
+    //            "pfrm", platform,       //string
+    //            "mail", email,          //string
+    //            "desc", description));  //string
 
-    const char *json_str = json_dumps(root, JSON_COMPACT);
-    printf("stat update: %s\n", json_str);
+    //const char *json_str = json_dumps(root, JSON_COMPACT);
+    //printf("stat update: %s\n", json_str);
 
     printf("stat update: %s", stat_timestamp);
     if(cp_nb_rx_ok == 0){
@@ -191,16 +192,66 @@ void send_stat(){
         printf(" %u packet%sreceived\n", cp_nb_rx_ok, cp_nb_rx_ok > 1 ? "s " : " ");
     }
 
-    int json_strlen = strlen(json_str);
+    //int json_strlen = strlen(json_str);
 
     //build and send message
-    memcpy(status_pkt + HEADER_SIZE, json_str, json_strlen);
-    for(int i = 0; i < numservers; ++i){
-        send_udp(servers[i], status_pkt, HEADER_SIZE + json_strlen);
-    }
+    //memcpy(status_pkt + HEADER_SIZE, json_str, json_strlen);
+    //send_udp(servers[i], status_pkt, HEADER_SIZE + json_strlen);
 
     //free json memory
-    json_decref(root);
+    //json_decref(root);
+
+
+
+
+
+
+    /*ProtobufCService * protobuf_c_rpc_client_new(
+      PROTOBUF_C_RPC_ADDRESS_TCP,
+      const char                       *name,
+      const ProtobufCServiceDescriptor *descriptor,
+      ProtobufCDispatch                *dispatch);*/
+
+
+
+    ProtobufCService *service;
+    ProtobufC_RPC_Client *client;
+    ProtobufC_RPC_AddressType address_type = PROTOBUF_C_RPC_ADDRESS_TCP;
+
+    service = protobuf_c_rpc_client_new(address_type, discoveryServer, &foo__dir_lookup__descriptor, NULL);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
 
 void send_ack(const char *message){
@@ -255,7 +306,7 @@ bool receive_packet(void){
     //buffer to compose the upstream packet
     char pkt[TX_BUFF_SIZE];
 
-    fill_pkt_header(pkt);
+    //fill_pkt_header(pkt);
 
     //TODO: start_time can jump if time is (re)set, not good
     struct timeval now;
@@ -269,47 +320,43 @@ bool receive_packet(void){
     char datr[] = "SFxxBWxxx";
     snprintf(datr, strlen(datr) + 1, "SF%hhuBW%hu", sf, bw);
 
-    json_t *root = json_object();
-    json_t *arr  = json_array();
-    json_array_append_new(arr,
-            json_pack("{si,sf,si,si,si,ss,ss,ss,si,si,si,ss}",
-                "tmst", start_time,           //uint
-                "freq", mhz,                  //double
-                "chan", 0,                    //uint
-                "rfch", 0,                    //uint
-                "stat", 1,                    //uint
-                "modu", "LORA",               //string
-                "datr", datr,                 //string
-                "codr", "4/5",                //string
-                "rssi", rssi,                 //int
-                "lsnr", SNR,                  //long
-                "size", length,               //uint
-                "data", b64));                //string
+    //json_t *root = json_object();
+    //json_t *arr  = json_array();
+    //json_array_append_new(arr,
+    //        json_pack("{si,sf,si,si,si,ss,ss,ss,si,si,si,ss}",
+    //            "tmst", start_time,           //uint
+    //            "freq", mhz,                  //double
+    //            "chan", 0,                    //uint
+    //            "rfch", 0,                    //uint
+    //            "stat", 1,                    //uint
+    //            "modu", "LORA",               //string
+    //            "datr", datr,                 //string
+    //            "codr", "4/5",                //string
+    //            "rssi", rssi,                 //int
+    //            "lsnr", SNR,                  //long
+    //            "size", length,               //uint
+    //            "data", b64));                //string
 
-    json_object_set_new(root, "rxpk", arr);
+    //json_object_set_new(root, "rxpk", arr);
 
-    const char *json_str = json_dumps(root, JSON_COMPACT);
+    //const char *json_str = json_dumps(root, JSON_COMPACT);
 
-    //printf("rxpk update: %s\n", json_str);
+    ////printf("rxpk update: %s\n", json_str);
 
-    int json_strlen = strlen(json_str);
+    //int json_strlen = strlen(json_str);
 
-    //build and send message.
-    memcpy(pkt + 12, json_str, json_strlen);
-    for(int i = 0; i < numservers; ++i){
-        send_udp(servers[i], pkt, HEADER_SIZE + json_strlen);
-    }
+    ////build and send message.
+    //memcpy(pkt + 12, json_str, json_strlen);
+    ////send_udp(servers[i], pkt, HEADER_SIZE + json_strlen);
 
-    //free json memory
-    json_decref(root);
-    fflush(stdout);
+    ////free json memory
+    //json_decref(root);
+    //fflush(stdout);
     return true;
 }
 
 void print_configuration(){
-    for(int i = 0; i < numservers; ++i){
-        printf("server: address = %s; port = %hu\n", servers[i].address, servers[i].port);
-    }
+    //printf("server: %s\n", server);
     printf("Gateway Configuration:\n");
     printf("  platform=%s, email=%s, desc=%s\n", platform, email, description);
     printf("  lat=%.8f, lon=%.8f, alt=%d\n", lat, lon, alt);
@@ -326,7 +373,7 @@ void init(void){
     //setup LoRa
     setup_lora();
     print_configuration();
-    init_socket();
+    //init_socket();
 
     printf("Listening at SF%i on %.6lf Mhz.\n", sf, mhz);
     printf("-----------------------------------\n");

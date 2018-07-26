@@ -1,7 +1,6 @@
 #include "net.h"
 
 #include "registers.h"
-#include "server.h"
 
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
@@ -14,11 +13,12 @@
 #include <stdio.h>
 #include <string.h>
 
-static const char *interface = "eth0";
-struct sockaddr_in si_other;
+//static const char *interface = "eth0";
+/*struct sockaddr_in si_other;
 int sock;
-struct ifreq ifr;
+struct ifreq ifr;*/
 
+/*
 void solve_hostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p_sin){
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
@@ -46,9 +46,9 @@ void solve_hostname(const char *p_hostname, uint16_t port, struct sockaddr_in *p
     }
 
     freeaddrinfo(p_result);
-}
+}*/
 
-void send_udp(Server server, char *msg, int length){
+/*void send_udp(Server server, char *msg, int length){
     si_other.sin_port = htons(server.port);
     solve_hostname(server.address, server.port, &si_other);
     if(sendto(sock, msg, length, 0, (struct sockaddr*)&si_other, sizeof(si_other)) == -1){
@@ -78,9 +78,9 @@ void init_socket(void){
             ifr.ifr_hwaddr.sa_data[3],
             ifr.ifr_hwaddr.sa_data[4],
             ifr.ifr_hwaddr.sa_data[5]);
-}
+}*/
 
-void fill_pkt_header(char *pkt){
+/*void fill_pkt_header(char *pkt){
     pkt[0]  = PROTOCOL_VERSION;
     pkt[1]  = rand(); //random tokens
     pkt[2]  = rand();
@@ -93,4 +93,4 @@ void fill_pkt_header(char *pkt){
     pkt[9]  = ifr.ifr_hwaddr.sa_data[3];
     pkt[10] = ifr.ifr_hwaddr.sa_data[4];
     pkt[11] = ifr.ifr_hwaddr.sa_data[5];
-}
+}*/

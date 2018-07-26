@@ -1,0 +1,6 @@
+[submodule "lib/gateway-connector-bridge"]
+	path = lib/gateway-connector-bridge
+	url = https://github.com/TheThingsNetwork/gateway-connector-bridge.git
+[submodule "lib/api"]
+	path = lib/api
+	url = https://github.com/TheThingsNetwork/api.git

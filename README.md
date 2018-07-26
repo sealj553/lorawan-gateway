@@ -2,7 +2,9 @@
 
 This is a single channel LoRaWAN gateway for use with Semtech SX1276 (HopeRF RFM95W) transcievers connected over USB via FTDI 2232H or WCH CH341A. This is written in C and is for use on Linux (embedded or desktop) as a low-cost LoRaWAN gateway.
 
-It was originally forked from [hallard/single_chan_pkt_fwd](https://github.com/hallard/single_chan_pkt_fwd) forked from [jlesech/single_chan_pkt_fwd](https://github.com/jlesech/single_chan_pkt_fwd) forked from [tftelkamp/single_chan_pkt_fwd](https://github.com/tftelkamp/single_chan_pkt_fwd) (whew!).
+It outputs its data in The Things Network's Gateway Connector protocol (protocol buffer encoded over MQTT). (soon to be over SSL)
+
+It was originally forked from [hallard/single_chan_pkt_fwd](https://github.com/hallard/single_chan_pkt_fwd) forked from [jlesech/single_chan_pkt_fwd](https://github.com/jlesech/single_chan_pkt_fwd) forked from [tftelkamp/single_chan_pkt_fwd](https://github.com/tftelkamp/single_chan_pkt_fwd).
 
 ## Features
 * Configurable frequency and spreading factor (SF7-SF12)
@@ -10,12 +12,8 @@ It was originally forked from [hallard/single_chan_pkt_fwd](https://github.com/h
 * Edit `config.h` to change various options
 
 ## Dependencies
-[jansson](https://github.com/akheron/jansson) is used to pack json data
-
-For a debian-based distro:
-```shell
-sudo apt-get install libjansson-dev
-```
+[jansson](https://github.com/akheron/jansson) for packing json data
+[protobuf-c](https://github.com/protobuf-c/protobuf-c) and [protobuf-c-rpc](https://github.com/protobuf-c/protobuf-c-rpc) for packing and sending data
 
 You also need gschorcht's [spi-ch341-usb](https://github.com/gschorcht/spi-ch341-usb) kernel module installed.
 
