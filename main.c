@@ -9,8 +9,11 @@
 #include "time_util.h"
 #include "net.h"
 
-//#include <google/protobuf-c/protobuf-c-rpc.h>
 #include <protobuf-c-rpc.h>
+
+#include "github.com/TheThingsNetwork/api/gateway/gateway.pb-c.h"
+#include "github.com/TheThingsNetwork/api/router/router.pb-c.h"
+#include "github.com/TheThingsNetwork/gateway-connector-bridge/types/types.pb-c.h"
 
 #include <sys/time.h>
 
@@ -219,10 +222,41 @@ void send_stat(){
     ProtobufC_RPC_AddressType address_type = PROTOBUF_C_RPC_ADDRESS_TCP;
 
     service = protobuf_c_rpc_client_new(address_type, discoveryServer, &foo__dir_lookup__descriptor, NULL);
+    if(!service){
+        puts("error creating RPC client");
+    }
 
+    client = (ProtobufC_RPC_Client*)service;
 
+    puts("Connecting... ");
+    while(!protobuf_c_rpc_client_is_connected(client)){
+        protobuf_c_dispatch_run(protobuf_c_dispatch_default());
+    }
+    puts("done");
 
+    while(1){
+        char buf[1024];
+        Foo__Name query = FOO__NAME__INIT;
+        protobuf_c_boolean is_done = 0;
 
+        fprintf (stderr, ">> ");
+        if(fgets (buf, sizeof (buf), stdin) == NULL){
+            break;
+        }
+        if(is_whitespace(buf)){
+            continue;
+        }
+
+        chomp_trailing_whitespace(buf);
+        query.name = buf;
+        foo__dir_lookup__by_name(service, &query, handle_query_response, &is_done);
+
+        while(!is_done){
+            protobuf_c_dispatch_run (protobuf_c_dispatch_default ());
+        }
+    }
+    return 0;
+}
 
 
 

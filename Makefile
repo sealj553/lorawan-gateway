@@ -4,12 +4,9 @@
 CC       = gcc
 LDFLAGS  =
 CPPFLAGS = -std=gnu11
-INCLUDE  = -I/usr/include/protobuf-c-rpc
+INCLUDE  = -I/usr/include/protobuf-c-rpc -I./
 CFLAGS   = -Wall -Wextra -Wfatal-errors $(INCLUDE)
 TARGET   = single_chan_pkt_fwd
-
-#CXX      = g++
-#CXXFLAGS = -std=c++11
 
 SRCFILES = base64.c main.c spi.c gpio.c time_util.c net.c
 OBJECTS  = $(patsubst %.c, %.o, $(SRCFILES))
@@ -19,13 +16,11 @@ all: $(TARGET)
 $(TARGET): $(OBJECTS)
 	    $(CC) -o $@ $^ $(LDFLAGS)
 
-
-PROTOC = protoc-c --c_out=proto --proto_path=. \
-		 -Igithub.com/TheThingsNetwork/api \
-		 -Igithub.com/gogo/protobuf/protobuf \
+PROTOC = protoc-c --c_out=. --proto_path=. \
+		 -I github.com/TheThingsNetwork/api \
+		 -I github.com/gogo/protobuf/protobuf \
 		 github.com/
 protoc:
-	mkdir -p proto
 	$(PROTOC)gogo/protobuf/protobuf/google/protobuf/descriptor.proto
 	$(PROTOC)gogo/protobuf/protobuf/google/protobuf/empty.proto
 	$(PROTOC)gogo/protobuf/gogoproto/gogo.proto
@@ -39,4 +34,3 @@ protoc:
 
 clean:
 	rm -f *.o $(TARGET)
-	rm -rf proto
