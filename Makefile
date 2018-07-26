@@ -32,5 +32,8 @@ protoc:
 	$(PROTOC)TheThingsNetwork/api/router/router.proto
 	$(PROTOC)TheThingsNetwork/gateway-connector-bridge/types/types.proto
 
+clean-protoc:
+	find -name "*.pb-c.*" -delete
+
 clean:
 	rm -f *.o $(TARGET)
