@@ -20,7 +20,7 @@ $(TARGET): $(OBJECTS)
 	    $(CC) -o $@ $^ $(LDFLAGS)
 
 protoc:
-	protoc-c lib/gateway-connector-bridge/types/types.proto
+	protoc-c --c_out=@ lib/gateway-connector-bridge/types/types.proto
 
 clean:
 	rm -f *.o $(TARGET)
