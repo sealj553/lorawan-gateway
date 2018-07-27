@@ -5,7 +5,7 @@ LDFLAGS  = -lprotobuf-c -lprotobuf-c-rpc
 CPPFLAGS = -std=gnu11
 INCLUDE  = -I/usr/include/protobuf-c -I/usr/include/protobuf-c-rpc -I. \
 		   -Igithub.com/gogo/protobuf/protobuf
-CFLAGS   = -Wall -Wextra -Wfatal-errors -Wno-unused-variable $(INCLUDE)
+CFLAGS   = -Wall -Wextra -Wfatal-errors -Wno-unused-variable -Wno-unused-but-set-variable $(INCLUDE)
 TARGET   = single_chan_pkt_fwd
 SRCFILES = base64.c main.c spi.c gpio.c time_util.c net.c \
 		   github.com/gogo/protobuf/protobuf/google/protobuf/descriptor.pb-c.c \

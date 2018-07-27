@@ -220,44 +220,64 @@ void send_stat(){
        On status: send gateway.Status on topic <gateway-id>/status.
        */
 
+    const char *payload = "datadatadata";
 
-       Router__UplinkMessage uplink_msg = ROUTER__UPLINK_MESSAGE__INIT; 
+    Router__UplinkMessage uplink_msg = ROUTER__UPLINK_MESSAGE__INIT; 
+    //add data to msg
+
+    uplink_msg.payload = (struct ProtobufCBinaryData){strlen(payload), (uint8_t*)payload};
+
+    /**router.UplinkMessage {
+    // Creating a dummy uplink message, using the protocol buffer-generated types
+    return &router.UplinkMessage{
+GatewayMetadata: &gateway.RxMetadata{
+Rssi: -35,
+Snr:  5,
+},
+Payload: payload,
+ProtocolMetadata: &protocol.RxMetadata{
+Protocol: &protocol.RxMetadata_Lorawan{
+Lorawan: &lorawan.Metadata{
+CodingRate: "4/5",
+DataRate:   "SF7BW125",
+Modulation: lorawan.Modulation_LORA,
+},
+},
+},
+}
+}*/
+
+    //allocate memory and pack
+    int len = router__uplink_message__get_packed_size(&uplink_msg);
+    void *buf = malloc(len);
+    router__uplink_message__pack(&uplink_msg, buf);
+
+    fprintf(stderr,"Writing %d serialized bytes\n",len); // See the length of message
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+    free(buf);
 
 
 
 
     /*ProtobufCService *service;
-    ProtobufC_RPC_Client *client;
-    ProtobufC_RPC_AddressType address_type = PROTOBUF_C_RPC_ADDRESS_TCP;
+      ProtobufC_RPC_Client *client;
+      ProtobufC_RPC_AddressType address_type = PROTOBUF_C_RPC_ADDRESS_TCP;
 
-    service = protobuf_c_rpc_client_new(address_type, discoveryServer, &???????????, NULL);
-    if(!service){
-        puts("error creating RPC client");
-    }
+      service = protobuf_c_rpc_client_new(address_type, discoveryServer, &???????????, NULL);
+      if(!service){
+      puts("error creating RPC client");
+      }
 
-    client = (ProtobufC_RPC_Client*)service;
+      client = (ProtobufC_RPC_Client*)service;
 
-    puts("Connecting... ");
-    while(!protobuf_c_rpc_client_is_connected(client)){
-        protobuf_c_rpc_dispatch_run(protobuf_c_rpc_dispatch_default());
-    }
-    puts("done");
+      puts("Connecting... ");
+      while(!protobuf_c_rpc_client_is_connected(client)){
+      protobuf_c_rpc_dispatch_run(protobuf_c_rpc_dispatch_default());
+      }
+      puts("done");
 
-    while(1){
+      while(1){
       char buf[1024];
       Foo__Name query = FOO__NAME__INIT;
       protobuf_c_boolean is_done = 0;
@@ -280,7 +300,7 @@ void send_stat(){
     }
     }*/
 
-}
+    }
 
 void send_ack(const char *message){
     char pkt[ACK_HEADER_SIZE];
