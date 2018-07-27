@@ -9,12 +9,12 @@
 #include "time_util.h"
 #include "net.h"
 
-#include <protobuf-c.h>
-#include <protobuf-c-rpc.h>
-
 #include "github.com/TheThingsNetwork/api/gateway/gateway.pb-c.h"
 #include "github.com/TheThingsNetwork/api/router/router.pb-c.h"
-#include "github.com/TheThingsNetwork/gateway-connector-bridge/types/types.pb-c.h"
+//#include "github.com/TheThingsNetwork/gateway-connector-bridge/types/types.pb-c.h"
+
+#include <protobuf-c.h>
+#include <protobuf-c-rpc.h>
 
 #include <sys/time.h>
 
@@ -205,13 +205,46 @@ void send_stat(){
     //free json memory
     //json_decref(root);
 
+    /*
+       The Things Network's gateway-connector protocol sends protocol buffers over MQTT.
+
+       Connect to MQTT with your gateway's ID as username and Access Key as password.
+       On MQTT brokers that don't support authentication, you can connect without authentication.
+       After connect: send types.ConnectMessage on topic connect.
+       Supply the gateway's ID and Access Key to authenticate with the backend
+       On disconnect: send types.DisconnectMessage on topic disconnect.
+       Supply the same ID and Access Key as in the ConnectMessage.
+       Use the "will" feature of MQTT to send the DisconnectMessage when the gateway unexpectedly disconnects.
+       On uplink: send router.UplinkMessage on topic <gateway-id>/up.
+       For downlink: subscribe to topic <gateway-id>/down and receive router.DownlinkMessage.
+       On status: send gateway.Status on topic <gateway-id>/status.
+       */
 
 
-    ProtobufCService *service;
+       Router__UplinkMessage uplink_msg = ROUTER__UPLINK_MESSAGE__INIT; 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /*ProtobufCService *service;
     ProtobufC_RPC_Client *client;
     ProtobufC_RPC_AddressType address_type = PROTOBUF_C_RPC_ADDRESS_TCP;
 
-    service = protobuf_c_rpc_client_new(address_type, discoveryServer, &router__router__descriptor, NULL);
+    service = protobuf_c_rpc_client_new(address_type, discoveryServer, &???????????, NULL);
     if(!service){
         puts("error creating RPC client");
     }
@@ -220,31 +253,32 @@ void send_stat(){
 
     puts("Connecting... ");
     while(!protobuf_c_rpc_client_is_connected(client)){
-        protobuf_c_dispatch_run(protobuf_c_dispatch_default());
+        protobuf_c_rpc_dispatch_run(protobuf_c_rpc_dispatch_default());
     }
     puts("done");
 
     while(1){
-        char buf[1024];
-        Foo__Name query = FOO__NAME__INIT;
-        protobuf_c_boolean is_done = 0;
+      char buf[1024];
+      Foo__Name query = FOO__NAME__INIT;
+      protobuf_c_boolean is_done = 0;
 
-        fprintf (stderr, ">> ");
-        if(fgets (buf, sizeof (buf), stdin) == NULL){
-            break;
-        }
-        //if(is_whitespace(buf)){
-        //    continue;
-        //}
+      puts(">>");
 
-        //chomp_trailing_whitespace(buf);
-        query.name = buf;
-        foo__dir_lookup__by_name(service, &query, handle_query_response, &is_done);
+      if(fgets(buf, sizeof(buf), stdin) == NULL){
+      break;
+      }
+    //if(is_whitespace(buf)){
+    //    continue;
+    //}
 
-        while(!is_done){
-            protobuf_c_dispatch_run (protobuf_c_dispatch_default ());
-        }
+    //chomp_trailing_whitespace(buf);
+    query.name = buf;
+    foo__dir_lookup__by_name(service, &query, handle_query_response, &is_done);
+
+    while(!is_done){
+    protobuf_c_dispatch_run(protobuf_c_dispatch_default());
     }
+    }*/
 
 }
 
