@@ -9,6 +9,8 @@
 #include "time_util.h"
 #include "net.h"
 
+#include "MQTTClient.h"
+
 #include "github.com/TheThingsNetwork/api/gateway/gateway.pb-c.h"
 #include "github.com/TheThingsNetwork/api/router/router.pb-c.h"
 //#include "github.com/TheThingsNetwork/gateway-connector-bridge/types/types.pb-c.h"
@@ -222,30 +224,26 @@ void send_stat(){
 
     const char *payload = "datadatadata";
 
+    //struct  _Router__UplinkMessage
+    //{
+    //  ProtobufCMessage base;
+    //  ProtobufCBinaryData payload;
+    //  Protocol__Message *message;
+    //  Protocol__RxMetadata *protocol_metadata;
+    //  Gateway__RxMetadata *gateway_metadata;
+    //  Trace__Trace *trace;
+    //};
+
     Router__UplinkMessage uplink_msg = ROUTER__UPLINK_MESSAGE__INIT; 
     //add data to msg
 
-    uplink_msg.payload = (struct ProtobufCBinaryData){strlen(payload), (uint8_t*)payload};
+    uplink_msg.payload = (struct ProtobufCBinaryData){ strlen(payload), (uint8_t*)payload };
 
-    /**router.UplinkMessage {
-    // Creating a dummy uplink message, using the protocol buffer-generated types
-    return &router.UplinkMessage{
-GatewayMetadata: &gateway.RxMetadata{
-Rssi: -35,
-Snr:  5,
-},
-Payload: payload,
-ProtocolMetadata: &protocol.RxMetadata{
-Protocol: &protocol.RxMetadata_Lorawan{
-Lorawan: &lorawan.Metadata{
-CodingRate: "4/5",
-DataRate:   "SF7BW125",
-Modulation: lorawan.Modulation_LORA,
-},
-},
-},
-}
-}*/
+    Protocol__RxMetadata protocol_rxmetadata = PROTOCOL__RX_METADATA__INIT;
+    Lorawan__Metadata lorawan = LORAWAN__METADATA__INIT;
+    //lorawan.Rssi = -35;
+    //uplink_msg.protocol_metadata = 
+
 
     //allocate memory and pack
     int len = router__uplink_message__get_packed_size(&uplink_msg);
@@ -300,7 +298,7 @@ Modulation: lorawan.Modulation_LORA,
     }
     }*/
 
-    }
+}
 
 void send_ack(const char *message){
     char pkt[ACK_HEADER_SIZE];
