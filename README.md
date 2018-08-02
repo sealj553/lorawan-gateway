@@ -2,7 +2,7 @@
 
 * This is a work in progress -- don't expect it to work
 
-This is a single channel LoRaWAN gateway for use with Semtech SX1276 (HopeRF RFM95W) transcievers connected over USB via FTDI 2232H or WCH CH341A. This is written in C and is for use on Linux (embedded or desktop) as a low-cost LoRaWAN gateway.
+This is a single channel LoRaWAN gateway for use with Semtech SX1276 (HopeRF RFM95W) transcievers connected over USB via WCH CH341A (and maybe FTDI 2232H). This is written in C and is for use on Linux (embedded or desktop) as a low-cost LoRaWAN gateway.
 
 It outputs its data in The Things Network's Gateway Connector protocol (protocol buffer encoded over MQTT).
 
@@ -15,21 +15,18 @@ It was originally forked from [hallard/single_chan_pkt_fwd](https://github.com/h
 
 ## Dependencies
 [protobuf-c](https://github.com/protobuf-c/protobuf-c)
-
 You also need gschorcht's [spi-ch341-usb](https://github.com/gschorcht/spi-ch341-usb) kernel module installed.
-
-TTN's [forked version][https://github.com/TheThingsNetwork/paho.mqtt.embedded-c.git] of paho.mqtt.embedded-c is included as a submodule
+TTN's [forked version](https://github.com/TheThingsNetwork/paho.mqtt.embedded-c.git) of paho.mqtt.embedded-c is included as a submodule
 
 ## Building
 ```shell
-git clone --recurse-submodules -j8 https://github.com/sealj553/single_chan_pkt_fwd.git
+git clone --recurse-submodules -j8 --depth 1 https://github.com/sealj553/single_chan_pkt_fwd.git
 cd single_chan_pkt_fwd
 
 #build the paho library
 cd paho.mqtt.embedded-c
 make
 sudo make install #or directly link with .so files
-
 cd ../../
 
 #compile the proto files
