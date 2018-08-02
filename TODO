@@ -1,3 +1,4 @@
+establish connection with server
 test with end device
 put packet packing into function
 check out how multiple spreading factors are monitored here and try to implement: https://github.com/JaapBraam/LoRaWanGateway

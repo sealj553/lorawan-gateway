@@ -31,7 +31,7 @@ void print_configuration();
 void die(const char *s);
 bool read_data(char *payload, uint8_t *p_length);
 void setup_lora();
-void send_stat();
+void send_status();
 bool receive_packet(void);
 void init(void);
 void send_ack(const char *message);
@@ -182,38 +182,12 @@ void print_downlink(Router__DownlinkMessage *msg, void *arg){
     }
 }
 
-void send_stat(){
-    //status report packet
-    char status_pkt[STATUS_SIZE];
+void send_status(){
+    //char stat_timestamp[24];
+    //time_t t = time(NULL);
+    //strftime(stat_timestamp, sizeof(stat_timestamp), "%F %T %Z", gmtime(&t));
 
-    //fill_pkt_header(status_pkt);
-
-    //get timestamp for statistics
-    char stat_timestamp[24];
-    time_t t = time(NULL);
-    strftime(stat_timestamp, sizeof(stat_timestamp), "%F %T %Z", gmtime(&t));
-
-    //json_t *root = json_object();
-    //json_object_set_new(root, "stat", 
-    //        json_pack("{ss,sf,sf,si,si,si,si,sf,si,si,ss,ss,ss}",
-    //            "time", stat_timestamp, //string
-    //            "lati", lat,            //double
-    //            "long", lon,            //double
-    //            "alti", alt,            //int
-    //            "rxnb", rx_rcv,   //uint
-    //            "rxok", rx_ok,    //uint
-    //            "rxfw", cp_up_pkt_fwd,  //uint
-    //            "ackr", 0.f,            //double
-    //            "dwnb", 0,              //uint
-    //            "txnb", 0,              //uint
-    //            "pfrm", platform,       //string
-    //            "mail", email,          //string
-    //            "desc", description));  //string
-
-    //const char *json_str = json_dumps(root, JSON_COMPACT);
-    //printf("stat update: %s\n", json_str);
-
-    printf("stat update: %s", stat_timestamp);
+    //printf("stat update: %s", stat_timestamp);
     if(rx_ok == 0){
         printf(" no packet received yet\n");
     } else {
@@ -230,7 +204,6 @@ void send_stat(){
 
     // Send gateway status
     Gateway__Status status  = GATEWAY__STATUS__INIT;
-    //status.has_time = 1;
     status.time             = 555;
     //status.gateway_trusted
     //status.boot_time
@@ -249,9 +222,9 @@ void send_stat(){
     //status.lm_nw
     //status.l_pps
     Gateway__Status__OSMetrics os = GATEWAY__STATUS__OSMETRICS__INIT;
-    os.cpu_percentage    = 0;
-    os.memory_percentage = 0;
-    os.temperature       = 999;
+    os.cpu_percentage       = 0;
+    os.memory_percentage    = 0;
+    os.temperature          = 999;
     status.os = &os;
 
     int err = ttngwc_send_status(ttn, &status);
@@ -260,40 +233,6 @@ void send_stat(){
     } else {
         printf("status: sent with time %d\n", 555);
     }
-
-    // Enter the payload
-    //unsigned char buf[] = {0x1, 0x2, 0x3, 0x4, 0x5};
-    uint8_t buf[] = "hello world";
-    Router__UplinkMessage up = ROUTER__UPLINK_MESSAGE__INIT;
-    up.payload.len           = sizeof(buf);
-    up.payload.data          = buf;
-
-    // Set protocol metadata
-    Protocol__RxMetadata protocol = PROTOCOL__RX_METADATA__INIT;
-    protocol.protocol_case        = PROTOCOL__RX_METADATA__PROTOCOL_LORAWAN;
-    Lorawan__Metadata lorawan     = LORAWAN__METADATA__INIT;
-    lorawan.modulation            = LORAWAN__MODULATION__LORA;
-    lorawan.data_rate             = data_rate;
-    lorawan.coding_rate           = coding_rate;
-    lorawan.f_cnt                 = 0; //frame count
-    protocol.lorawan     = &lorawan;
-    up.protocol_metadata = &protocol;
-
-    // Set gateway metadata
-    Gateway__RxMetadata gateway = GATEWAY__RX_METADATA__INIT;
-    gateway.timestamp           = 555;
-    gateway.rf_chain            = rf_chain;
-    gateway.frequency           = freq;
-    up.gateway_metadata = &gateway;
-
-    // Send uplink message
-    err = ttngwc_send_uplink(ttn, &up);
-    if(err){
-        printf("up: send failed: %d\n", err);
-    } else {
-        printf("up: sent with timestamp %d\n", 555);
-    }
-
 }
 
 void send_ack(const char *message){
@@ -345,52 +284,48 @@ bool receive_packet(void){
     }
     printf("'\n");
 
-    //buffer to compose the upstream packet
-    char pkt[TX_BUFF_SIZE];
-
-    //fill_pkt_header(pkt);
-
-    uint32_t start_time = get_time();
+    //uint32_t start_time = get_time();
 
     //encode payload
     char b64[BASE64_MAX_LENGTH];
     bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
 
-    char datr[] = "SFxxBWxxx";
-    snprintf(datr, strlen(datr) + 1, "SF%hhuBW%hu", sf, bw);
+    //char datr[] = "SFxxBWxxx";
+    //snprintf(datr, strlen(datr) + 1, "SF%hhuBW%hu", sf, bw);
 
-    //json_t *root = json_object();
-    //json_t *arr  = json_array();
-    //json_array_append_new(arr,
-    //        json_pack("{si,sf,si,si,si,ss,ss,ss,si,si,si,ss}",
-    //            "tmst", start_time,           //uint
-    //            "freq", mhz,                  //double
-    //            "chan", 0,                    //uint
-    //            "rfch", 0,                    //uint
-    //            "stat", 1,                    //uint
-    //            "modu", "LORA",               //string
-    //            "datr", datr,                 //string
-    //            "codr", "4/5",                //string
-    //            "rssi", rssi,                 //int
-    //            "lsnr", SNR,                  //long
-    //            "size", length,               //uint
-    //            "data", b64));                //string
+    // Enter the payload
+    //unsigned char buf[] = {0x1, 0x2, 0x3, 0x4, 0x5};
+    uint8_t buf[] = "hello world";
+    Router__UplinkMessage up = ROUTER__UPLINK_MESSAGE__INIT;
+    up.payload.len           = sizeof(buf);
+    up.payload.data          = buf;
 
-    //json_object_set_new(root, "rxpk", arr);
+    // Set protocol metadata
+    Protocol__RxMetadata protocol = PROTOCOL__RX_METADATA__INIT;
+    protocol.protocol_case        = PROTOCOL__RX_METADATA__PROTOCOL_LORAWAN;
+    Lorawan__Metadata lorawan     = LORAWAN__METADATA__INIT;
+    lorawan.modulation            = LORAWAN__MODULATION__LORA;
+    lorawan.data_rate             = data_rate;
+    lorawan.coding_rate           = coding_rate;
+    lorawan.f_cnt                 = 0; //frame count
+    protocol.lorawan     = &lorawan;
+    up.protocol_metadata = &protocol;
 
-    //const char *json_str = json_dumps(root, JSON_COMPACT);
+    // Set gateway metadata
+    Gateway__RxMetadata gateway = GATEWAY__RX_METADATA__INIT;
+    gateway.timestamp           = 555;
+    gateway.rf_chain            = rf_chain;
+    gateway.frequency           = freq;
+    up.gateway_metadata = &gateway;
 
-    ////printf("rxpk update: %s\n", json_str);
+    // Send uplink message
+    int err = ttngwc_send_uplink(ttn, &up);
+    if(err){
+        printf("up: send failed: %d\n", err);
+    } else {
+        printf("up: sent with timestamp %d\n", 555);
+    }
 
-    //int json_strlen = strlen(json_str);
-
-    ////build and send message.
-    //memcpy(pkt + 12, json_str, json_strlen);
-    ////send_udp(servers[i], pkt, HEADER_SIZE + json_strlen);
-
-    ////free json memory
-    //json_decref(root);
-    //fflush(stdout);
     return true;
 }
 
@@ -446,7 +381,7 @@ void cleanup(void){
 
 int main(){
     init();
-    send_stat();
+    send_status();
 
     uint32_t lasttime = seconds();
     while(running){
@@ -455,7 +390,7 @@ int main(){
         //int nowseconds = seconds();
         //if(nowseconds - lasttime >= update_interval){
         //    lasttime = nowseconds;
-        //    send_stat();
+        //    send_status();
         //    rx_rcv  = 0;
         //    rx_ok   = 0;
         //    cp_up_pkt_fwd = 0;
