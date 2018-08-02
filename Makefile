@@ -1,16 +1,15 @@
 # Single Channel LoRaWAN Gateway
 
 CC       = gcc
-LDFLAGS  = -lprotobuf-c -lpaho-embed-mqtt3c
+LDFLAGS  = -lprotobuf-c -lpaho-embed-mqtt3c -lpthread
 CPPFLAGS = -std=gnu11 -D_GNU_SOURCE
 INCLUDE  = -I/usr/include/protobuf-c -I. \
 		   -Igithub.com/gogo/protobuf/protobuf \
 		   -Ipaho.mqtt.embedded-c/MQTTClient-C/src \
 		   -Ipaho.mqtt.embedded-c/MQTTPacket/src
-		   #-Ipaho.mqtt.embedded-c/MQTTClient-C/src/linux
 CFLAGS   = -Wall -Wextra -Wfatal-errors -Wno-unused-variable -Wno-unused-but-set-variable $(INCLUDE)
-TARGET   = single_chan_pkt_fwd
-SRCFILES = base64.c main.c spi.c gpio.c time_util.c net.c connector.c\
+TARGET   = lorawan-gateway
+SRCFILES = base64.c main.c spi.c gpio.c time_util.c net.c connector.c \
 		   paho.mqtt.embedded-c/MQTTClient-C/src/linux/MQTTLinux.c \
 		   paho.mqtt.embedded-c/MQTTClient-C/src/MQTTClient.c \
 		   github.com/gogo/protobuf/protobuf/google/protobuf/descriptor.pb-c.c \
@@ -21,7 +20,8 @@ SRCFILES = base64.c main.c spi.c gpio.c time_util.c net.c connector.c\
 		   github.com/TheThingsNetwork/api/gateway/gateway.pb-c.c \
 		   github.com/TheThingsNetwork/api/protocol/protocol.pb-c.c \
 		   github.com/TheThingsNetwork/api/protocol/lorawan/lorawan.pb-c.c \
-		   github.com/TheThingsNetwork/api/router/router.pb-c.c
+		   github.com/TheThingsNetwork/api/router/router.pb-c.c \
+		   github.com/TheThingsNetwork/gateway-connector-bridge/types/types.pb-c.c
 OBJECTS  = $(patsubst %.c, %.o, $(SRCFILES))
 
 all: $(TARGET)

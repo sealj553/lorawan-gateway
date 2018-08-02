@@ -24,7 +24,7 @@ void ttngwc_init(TTN **s, const char *id, TTNDownlinkHandler downlink_handler, v
                  session->send_buffer, SEND_BUFFER_SIZE, session->read_buffer,
                  READ_BUFFER_SIZE);
 
-  *s = (TTN *)session;
+  *s = (TTN*)session;
 }
 
 void ttngwc_cleanup(TTN *s) {

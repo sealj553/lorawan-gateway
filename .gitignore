@@ -1,4 +1,4 @@
-single_chan_pkt_fwd
+lorawan-gateway
 *.o
 proto
 *.pb-c.*
