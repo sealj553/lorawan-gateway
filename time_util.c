@@ -20,3 +20,8 @@ void delay(unsigned int ms){
     nanosleep(&time, NULL);
 }
 
+uint32_t get_time(void){
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    return now.tv_sec * 1000000 + now.tv_usec;
+}

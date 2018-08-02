@@ -350,10 +350,7 @@ bool receive_packet(void){
 
     //fill_pkt_header(pkt);
 
-    //TODO: start_time can jump if time is (re)set, not good
-    struct timeval now;
-    gettimeofday(&now, NULL);
-    uint32_t start_time = now.tv_sec * 1000000 + now.tv_usec;
+    uint32_t start_time = get_time();
 
     //encode payload
     char b64[BASE64_MAX_LENGTH];
