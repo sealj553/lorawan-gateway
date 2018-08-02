@@ -41,5 +41,7 @@ sudo ./lorawan-gateway
 
 ## License
 base64.c and base64.h are licensed under the Revised BSD License
+
 connector.c/h, network.h, and session.h are licensed under the MIT License
+
 All other files licensed under the Eclipse Public License v1.0
