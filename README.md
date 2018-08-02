@@ -15,7 +15,9 @@ It was originally forked from [hallard/single_chan_pkt_fwd](https://github.com/h
 
 ## Dependencies
 [protobuf-c](https://github.com/protobuf-c/protobuf-c)
+
 You also need gschorcht's [spi-ch341-usb](https://github.com/gschorcht/spi-ch341-usb) kernel module installed.
+
 TTN's [forked version](https://github.com/TheThingsNetwork/paho.mqtt.embedded-c.git) of paho.mqtt.embedded-c is included as a submodule
 
 ## Building
