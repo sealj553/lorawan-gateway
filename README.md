@@ -13,10 +13,10 @@ It was originally forked from [hallard/single_chan_pkt_fwd](https://github.com/h
 
 ## Dependencies
 [protobuf-c](https://github.com/protobuf-c/protobuf-c)
-[paho.mqtt.embedded-c](https://github.com/eclipse/paho.mqtt.embedded-c)
-
 
 You also need gschorcht's [spi-ch341-usb](https://github.com/gschorcht/spi-ch341-usb) kernel module installed.
+
+TTN's [forked version)[https://github.com/TheThingsNetwork/paho.mqtt.embedded-c.git] of paho.mqtt.embedded-c is included as a submodule
 
 ## Building
 ```shell
@@ -25,9 +25,6 @@ cd single_chan_pkt_fwd
 
 #build the paho library
 cd paho.mqtt.embedded-c
-mkdir build.paho
-cd build.paho
-cmake ..
 make
 sudo make install #or directly link with .so files
 
@@ -45,5 +42,5 @@ sudo ./single_chan_pkt_fwd
 
 ## Liscense
 base64.c and base64.h are licensed under the Revised BSD License
-
+connector.c/h, network.h, and session.h are licensed under the MIT License
 All other files licensed under the Eclipse Public License v1.0

@@ -1,5 +1,5 @@
 #define _POSIX_C_SOURCE 200112L
-#define _GNU_SOURCE
+//#define _GNU_SOURCE //defined also in paho lib
 
 #include "registers.h"
 #include "config.h"
@@ -9,7 +9,7 @@
 #include "time_util.h"
 #include "net.h"
 
-#include "LinuxMQTTClient.h"
+#include "connector.h"
 
 #include "github.com/TheThingsNetwork/api/gateway/gateway.pb-c.h"
 #include "github.com/TheThingsNetwork/api/router/router.pb-c.h"

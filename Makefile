@@ -2,13 +2,17 @@
 
 CC       = gcc
 LDFLAGS  = -lprotobuf-c -lpaho-embed-mqtt3c
-CPPFLAGS = -std=gnu11
+CPPFLAGS = -std=gnu11 -D_GNU_SOURCE
 INCLUDE  = -I/usr/include/protobuf-c -I. \
 		   -Igithub.com/gogo/protobuf/protobuf \
-		   -Ipaho.mqtt.embedded-c/MQTTClient-C/src/linux
+		   -Ipaho.mqtt.embedded-c/MQTTClient-C/src \
+		   -Ipaho.mqtt.embedded-c/MQTTPacket/src
+		   #-Ipaho.mqtt.embedded-c/MQTTClient-C/src/linux
 CFLAGS   = -Wall -Wextra -Wfatal-errors -Wno-unused-variable -Wno-unused-but-set-variable $(INCLUDE)
 TARGET   = single_chan_pkt_fwd
-SRCFILES = base64.c main.c spi.c gpio.c time_util.c net.c \
+SRCFILES = base64.c main.c spi.c gpio.c time_util.c net.c connector.c\
+		   paho.mqtt.embedded-c/MQTTClient-C/src/linux/MQTTLinux.c \
+		   paho.mqtt.embedded-c/MQTTClient-C/src/MQTTClient.c \
 		   github.com/gogo/protobuf/protobuf/google/protobuf/descriptor.pb-c.c \
 		   github.com/gogo/protobuf/protobuf/google/protobuf/empty.pb-c.c \
 		   github.com/gogo/protobuf/gogoproto/gogo.pb-c.c \
@@ -28,7 +32,6 @@ $(TARGET): $(OBJECTS)
 PROTOC = protoc-c --c_out=. --proto_path=. \
 		 -I github.com/TheThingsNetwork/api \
 		 -I github.com/gogo/protobuf/protobuf
-
 protoc:
 	$(PROTOC) github.com/gogo/protobuf/protobuf/google/protobuf/descriptor.proto
 	$(PROTOC) github.com/gogo/protobuf/protobuf/google/protobuf/empty.proto
