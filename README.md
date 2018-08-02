@@ -1,5 +1,7 @@
 # Single Channel LoRaWAN Gateway
 
+* This is a work in progress -- don't expect it to work
+
 This is a single channel LoRaWAN gateway for use with Semtech SX1276 (HopeRF RFM95W) transcievers connected over USB via FTDI 2232H or WCH CH341A. This is written in C and is for use on Linux (embedded or desktop) as a low-cost LoRaWAN gateway.
 
 It outputs its data in The Things Network's Gateway Connector protocol (protocol buffer encoded over MQTT).
