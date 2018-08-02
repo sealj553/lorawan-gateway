@@ -1,6 +1,3 @@
-#define _POSIX_C_SOURCE 200112L
-//#define _GNU_SOURCE //defined also in paho lib
-
 #include "registers.h"
 #include "config.h"
 #include "base64.h"
@@ -10,10 +7,6 @@
 #include "net.h"
 
 #include "connector.h"
-
-#include "github.com/TheThingsNetwork/api/gateway/gateway.pb-c.h"
-#include "github.com/TheThingsNetwork/api/router/router.pb-c.h"
-//#include "github.com/TheThingsNetwork/gateway-connector-bridge/types/types.pb-c.h"
 
 #include <protobuf-c.h>
 
