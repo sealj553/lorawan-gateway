@@ -2,14 +2,14 @@
 
 CC       = gcc
 LDFLAGS  = -lprotobuf-c -lpaho-embed-mqtt3c -lpthread
-CPPFLAGS = -std=gnu11 -D_GNU_SOURCE
+CPPFLAGS = -std=gnu11
 INCLUDE  = -I/usr/include/protobuf-c -I. \
 		   -Igithub.com/gogo/protobuf/protobuf \
 		   -Ipaho.mqtt.embedded-c/MQTTClient-C/src \
 		   -Ipaho.mqtt.embedded-c/MQTTPacket/src
-CFLAGS   = -Wall -Wextra -Wfatal-errors -Wno-unused-variable -Wno-unused-but-set-variable $(INCLUDE)
+CFLAGS   = -Wall -Wextra -Wfatal-errors -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-parameter $(INCLUDE)
 TARGET   = lorawan-gateway
-SRCFILES = base64.c main.c spi.c gpio.c time_util.c net.c connector.c \
+SRCFILES = base64.c main.c spi.c gpio.c time_util.c connector.c \
 		   paho.mqtt.embedded-c/MQTTClient-C/src/linux/MQTTLinux.c \
 		   paho.mqtt.embedded-c/MQTTClient-C/src/MQTTClient.c \
 		   github.com/gogo/protobuf/protobuf/google/protobuf/descriptor.pb-c.c \

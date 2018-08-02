@@ -12,6 +12,7 @@
 
 #include <sys/time.h>
 
+#include <signal.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -34,10 +35,19 @@ void send_stat();
 bool receive_packet(void);
 void init(void);
 void send_ack(const char *message);
+void print_downlink(Router__DownlinkMessage *msg, void *arg);
 
 void die(const char *s){
     perror(s);
     exit(1);
+}
+
+int running = 1;
+
+void stop(int sig){
+    signal(SIGINT, NULL);
+    puts("Shutting down...\n");
+    running = 0;
 }
 
 bool read_data(char *payload, uint8_t *p_length){
@@ -152,6 +162,25 @@ void setup_lora(){
     spi_write_reg(REG_OPMODE, MODE_RX_CONTINUOUS);
 }
 
+void print_downlink(Router__DownlinkMessage *msg, void *arg){
+    //if(!msg->payload.len){ return; }
+    printf("down: have %zu bytes downlink\n", msg->payload.len);
+    if(msg->protocol_configuration->protocol_case == PROTOCOL__TX_CONFIGURATION__PROTOCOL_LORAWAN){
+        Lorawan__TxConfiguration *lora = msg->protocol_configuration->lorawan;
+        printf("down: modulation: %d, data rate: %s, bit rate: %d, coding rate: "
+                "%s, fcnt: %d\n",
+                lora->modulation, lora->data_rate, lora->bit_rate,
+                lora->coding_rate, lora->f_cnt);
+        Gateway__TxConfiguration *gtw = msg->gateway_configuration;
+        printf("down: timestamp: %d, rf chain: %d, frequency: %lu, power: %d, "
+                "polarization inversion: %d, frequency deviation: %d\n",
+                gtw->timestamp, gtw->rf_chain, gtw->frequency, gtw->power,
+                gtw->polarization_inversion, gtw->frequency_deviation);
+    } else {
+        printf("down: invalid protocol %d\n", msg->protocol_configuration->protocol_case);
+    }
+}
+
 void send_stat(){
     //status report packet
     char status_pkt[STATUS_SIZE];
@@ -191,104 +220,94 @@ void send_stat(){
     }
 
     //int json_strlen = strlen(json_str);
-
     //build and send message
     //memcpy(status_pkt + HEADER_SIZE, json_str, json_strlen);
     //send_udp(servers[i], status_pkt, HEADER_SIZE + json_strlen);
-
     //free json memory
     //json_decref(root);
 
-    /*
-       The Things Network's gateway-connector protocol sends protocol buffers over MQTT.
+    srand(time(NULL));
 
-       Connect to MQTT with your gateway's ID as username and Access Key as password.
-       On MQTT brokers that don't support authentication, you can connect without authentication.
-       After connect: send types.ConnectMessage on topic connect.
-       Supply the gateway's ID and Access Key to authenticate with the backend
-       On disconnect: send types.DisconnectMessage on topic disconnect.
-       Supply the same ID and Access Key as in the ConnectMessage.
-       Use the "will" feature of MQTT to send the DisconnectMessage when the gateway unexpectedly disconnects.
-       On uplink: send router.UplinkMessage on topic <gateway-id>/up.
-       For downlink: subscribe to topic <gateway-id>/down and receive router.DownlinkMessage.
-       On status: send gateway.Status on topic <gateway-id>/status.
-       */
+    signal(SIGINT, stop);
+    signal(SIGTERM, stop);
 
-    const char *payload = "datadatadata";
-
-    //struct  _Router__UplinkMessage
-    //{
-    //  ProtobufCMessage base;
-    //  ProtobufCBinaryData payload;
-    //  Protocol__Message *message;
-    //  Protocol__RxMetadata *protocol_metadata;
-    //  Gateway__RxMetadata *gateway_metadata;
-    //  Trace__Trace *trace;
-    //};
-
-    Router__UplinkMessage uplink_msg = ROUTER__UPLINK_MESSAGE__INIT; 
-    //add data to msg
-
-    uplink_msg.payload = (struct ProtobufCBinaryData){ strlen(payload), (uint8_t*)payload };
-
-    Protocol__RxMetadata protocol_rxmetadata = PROTOCOL__RX_METADATA__INIT;
-    Lorawan__Metadata lorawan = LORAWAN__METADATA__INIT;
-    //lorawan.Rssi = -35;
-    //uplink_msg.protocol_metadata = 
-
-
-    //allocate memory and pack
-    int len = router__uplink_message__get_packed_size(&uplink_msg);
-    void *buf = malloc(len);
-    router__uplink_message__pack(&uplink_msg, buf);
-
-    fprintf(stderr,"Writing %d serialized bytes\n",len); // See the length of message
-
-
-    free(buf);
-
-
-
-
-    /*ProtobufCService *service;
-      ProtobufC_RPC_Client *client;
-      ProtobufC_RPC_AddressType address_type = PROTOBUF_C_RPC_ADDRESS_TCP;
-
-      service = protobuf_c_rpc_client_new(address_type, discoveryServer, &???????????, NULL);
-      if(!service){
-      puts("error creating RPC client");
-      }
-
-      client = (ProtobufC_RPC_Client*)service;
-
-      puts("Connecting... ");
-      while(!protobuf_c_rpc_client_is_connected(client)){
-      protobuf_c_rpc_dispatch_run(protobuf_c_rpc_dispatch_default());
-      }
-      puts("done");
-
-      while(1){
-      char buf[1024];
-      Foo__Name query = FOO__NAME__INIT;
-      protobuf_c_boolean is_done = 0;
-
-      puts(">>");
-
-      if(fgets(buf, sizeof(buf), stdin) == NULL){
-      break;
-      }
-    //if(is_whitespace(buf)){
-    //    continue;
-    //}
-
-    //chomp_trailing_whitespace(buf);
-    query.name = buf;
-    foo__dir_lookup__by_name(service, &query, handle_query_response, &is_done);
-
-    while(!is_done){
-    protobuf_c_dispatch_run(protobuf_c_dispatch_default());
+    // Initialize the TTN gateway with ID test
+    TTN *ttn;
+    ttngwc_init(&ttn, "test", &print_downlink, NULL);
+    if (!ttn) {
+        printf("failed to initialize TTN gateway\n");
+        return;
     }
-    }*/
+
+    // Connect to the test broker. The secret key is NULL for simplicity
+    printf("connecting...\n");
+    int err = ttngwc_connect(ttn, "localhost", 1883, NULL);
+    if(err != 0){
+        printf("connect failed: %d\n", err);
+        ttngwc_cleanup(ttn);
+        return;
+    }
+    printf("connected\n");
+
+    // Start the loop
+    int i = 0;
+    while(running){
+        // Send gateway status. The only parameter we're sending is the time
+        Gateway__Status status = GATEWAY__STATUS__INIT;
+        //status.has_time = 1;
+        status.time = ++i;
+        err = ttngwc_send_status(ttn, &status);
+        if (err)
+            printf("status: send failed: %d\n", err);
+        else
+            printf("status: sent with time %d\n", i);
+
+        // Enter the payload
+        unsigned char buf[] = {0x1, 0x2, 0x3, 0x4, 0x5};
+        Router__UplinkMessage up = ROUTER__UPLINK_MESSAGE__INIT;
+        //up.has_payload = 1;
+        up.payload.len = sizeof(buf);
+        up.payload.data = buf;
+
+        // Set protocol metadata
+        Protocol__RxMetadata protocol = PROTOCOL__RX_METADATA__INIT;
+        protocol.protocol_case = PROTOCOL__RX_METADATA__PROTOCOL_LORAWAN;
+        Lorawan__Metadata lorawan = LORAWAN__METADATA__INIT;
+        //lorawan.has_modulation = 1;
+        lorawan.modulation = LORAWAN__MODULATION__LORA;
+        lorawan.data_rate = "SF9BW250";
+        lorawan.coding_rate = "4/5";
+        //lorawan.has_f_cnt = 1;
+        lorawan.f_cnt = i;
+        protocol.lorawan = &lorawan;
+        up.protocol_metadata = &protocol;
+
+        // Set gateway metadata
+        Gateway__RxMetadata gateway = GATEWAY__RX_METADATA__INIT;
+        //gateway.has_timestamp = 1;
+        gateway.timestamp = 10000 + i * 100;
+        //gateway.has_rf_chain = 1;
+        gateway.rf_chain = 5;
+        //gateway.has_frequency = 1;
+        gateway.frequency = 867100000;
+        up.gateway_metadata = &gateway;
+
+        // Send uplink message
+        err = ttngwc_send_uplink(ttn, &up);
+        if (err)
+            printf("up: send failed: %d\n", err);
+        else
+            printf("up: sent with timestamp %d\n", i);
+
+        //sleep(rand() % 20);
+        delay(rand() % 20);
+    }
+
+    printf("disconnecting\n");
+    ttngwc_disconnect(ttn);
+    ttngwc_cleanup(ttn);
+
+
 
 }
 
