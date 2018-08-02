@@ -4,7 +4,6 @@
 #include "spi.h"
 #include "gpio.h"
 #include "time_util.h"
-#include "net.h"
 
 #include "connector.h"
 
@@ -20,12 +19,13 @@
 #include <ctype.h>
 #include <time.h>
 
-uint32_t cp_nb_rx_rcv  = 0;
-uint32_t cp_nb_rx_ok   = 0;
+uint32_t rx_rcv  = 0;
+uint32_t rx_ok   = 0;
 uint32_t cp_up_pkt_fwd = 0;
 
 int irqPin, rstPin, intPin;
 const double mhz = (double)freq/1000000;
+TTN *ttn;
 
 void print_configuration();
 void die(const char *s);
@@ -36,6 +36,7 @@ bool receive_packet(void);
 void init(void);
 void send_ack(const char *message);
 void print_downlink(Router__DownlinkMessage *msg, void *arg);
+void cleanup(void);
 
 void die(const char *s){
     perror(s);
@@ -55,7 +56,7 @@ bool read_data(char *payload, uint8_t *p_length){
     spi_write_reg(REG_IRQ_FLAGS, PAYLOAD_LENGTH);
 
     int irqflags = spi_read_reg(REG_IRQ_FLAGS);
-    ++cp_nb_rx_rcv;
+    ++rx_rcv;
 
     if((irqflags & PAYLOAD_CRC) == PAYLOAD_CRC) {
         puts("CRC error");
@@ -63,7 +64,7 @@ bool read_data(char *payload, uint8_t *p_length){
         return false;
     }
 
-    ++cp_nb_rx_ok;
+    ++rx_ok;
 
     uint8_t receivedCount = spi_read_reg(REG_RX_NB_BYTES);
     *p_length = receivedCount;
@@ -199,8 +200,8 @@ void send_stat(){
     //            "lati", lat,            //double
     //            "long", lon,            //double
     //            "alti", alt,            //int
-    //            "rxnb", cp_nb_rx_rcv,   //uint
-    //            "rxok", cp_nb_rx_ok,    //uint
+    //            "rxnb", rx_rcv,   //uint
+    //            "rxok", rx_ok,    //uint
     //            "rxfw", cp_up_pkt_fwd,  //uint
     //            "ackr", 0.f,            //double
     //            "dwnb", 0,              //uint
@@ -213,10 +214,10 @@ void send_stat(){
     //printf("stat update: %s\n", json_str);
 
     printf("stat update: %s", stat_timestamp);
-    if(cp_nb_rx_ok == 0){
+    if(rx_ok == 0){
         printf(" no packet received yet\n");
     } else {
-        printf(" %u packet%sreceived\n", cp_nb_rx_ok, cp_nb_rx_ok > 1 ? "s " : " ");
+        printf(" %u packet%sreceived\n", rx_ok, rx_ok > 1 ? "s " : " ");
     }
 
     //int json_strlen = strlen(json_str);
@@ -226,88 +227,72 @@ void send_stat(){
     //free json memory
     //json_decref(root);
 
-    srand(time(NULL));
 
-    signal(SIGINT, stop);
-    signal(SIGTERM, stop);
+    // Send gateway status
+    Gateway__Status status  = GATEWAY__STATUS__INIT;
+    //status.has_time = 1;
+    status.time             = 555;
+    //status.gateway_trusted
+    //status.boot_time
+    //status.ip
+    status.platform         = platform;
+    status.contact_email    = email;
+    status.description      = description;
+    status.frequency_plan   = frequency_plan;
+    //status.location
+    //status.rx_in
+    status.rx_ok            = rx_ok;
+    //status.tx_in
+    //status.tx_ok
+    //status.lm_ok
+    //status.lm_st
+    //status.lm_nw
+    //status.l_pps
+    Gateway__Status__OSMetrics os = GATEWAY__STATUS__OSMETRICS__INIT;
+    os.cpu_percentage    = 0;
+    os.memory_percentage = 0;
+    os.temperature       = 999;
+    status.os = &os;
 
-    // Initialize the TTN gateway with ID test
-    TTN *ttn;
-    ttngwc_init(&ttn, "test", &print_downlink, NULL);
-    if (!ttn) {
-        printf("failed to initialize TTN gateway\n");
-        return;
+    int err = ttngwc_send_status(ttn, &status);
+    if(err){
+        printf("status: send failed: %d\n", err);
+    } else {
+        printf("status: sent with time %d\n", 555);
     }
 
-    // Connect to the test broker. The secret key is NULL for simplicity
-    printf("connecting...\n");
-    int err = ttngwc_connect(ttn, "localhost", 1883, NULL);
-    if(err != 0){
-        printf("connect failed: %d\n", err);
-        ttngwc_cleanup(ttn);
-        return;
+    // Enter the payload
+    //unsigned char buf[] = {0x1, 0x2, 0x3, 0x4, 0x5};
+    uint8_t buf[] = "hello world";
+    Router__UplinkMessage up = ROUTER__UPLINK_MESSAGE__INIT;
+    up.payload.len           = sizeof(buf);
+    up.payload.data          = buf;
+
+    // Set protocol metadata
+    Protocol__RxMetadata protocol = PROTOCOL__RX_METADATA__INIT;
+    protocol.protocol_case        = PROTOCOL__RX_METADATA__PROTOCOL_LORAWAN;
+    Lorawan__Metadata lorawan     = LORAWAN__METADATA__INIT;
+    lorawan.modulation            = LORAWAN__MODULATION__LORA;
+    lorawan.data_rate             = data_rate;
+    lorawan.coding_rate           = coding_rate;
+    lorawan.f_cnt                 = 0; //frame count
+    protocol.lorawan     = &lorawan;
+    up.protocol_metadata = &protocol;
+
+    // Set gateway metadata
+    Gateway__RxMetadata gateway = GATEWAY__RX_METADATA__INIT;
+    gateway.timestamp           = 555;
+    gateway.rf_chain            = rf_chain;
+    gateway.frequency           = freq;
+    up.gateway_metadata = &gateway;
+
+    // Send uplink message
+    err = ttngwc_send_uplink(ttn, &up);
+    if(err){
+        printf("up: send failed: %d\n", err);
+    } else {
+        printf("up: sent with timestamp %d\n", 555);
     }
-    printf("connected\n");
-
-    // Start the loop
-    int i = 0;
-    while(running){
-        // Send gateway status. The only parameter we're sending is the time
-        Gateway__Status status = GATEWAY__STATUS__INIT;
-        //status.has_time = 1;
-        status.time = ++i;
-        err = ttngwc_send_status(ttn, &status);
-        if (err)
-            printf("status: send failed: %d\n", err);
-        else
-            printf("status: sent with time %d\n", i);
-
-        // Enter the payload
-        unsigned char buf[] = {0x1, 0x2, 0x3, 0x4, 0x5};
-        Router__UplinkMessage up = ROUTER__UPLINK_MESSAGE__INIT;
-        //up.has_payload = 1;
-        up.payload.len = sizeof(buf);
-        up.payload.data = buf;
-
-        // Set protocol metadata
-        Protocol__RxMetadata protocol = PROTOCOL__RX_METADATA__INIT;
-        protocol.protocol_case = PROTOCOL__RX_METADATA__PROTOCOL_LORAWAN;
-        Lorawan__Metadata lorawan = LORAWAN__METADATA__INIT;
-        //lorawan.has_modulation = 1;
-        lorawan.modulation = LORAWAN__MODULATION__LORA;
-        lorawan.data_rate = "SF9BW250";
-        lorawan.coding_rate = "4/5";
-        //lorawan.has_f_cnt = 1;
-        lorawan.f_cnt = i;
-        protocol.lorawan = &lorawan;
-        up.protocol_metadata = &protocol;
-
-        // Set gateway metadata
-        Gateway__RxMetadata gateway = GATEWAY__RX_METADATA__INIT;
-        //gateway.has_timestamp = 1;
-        gateway.timestamp = 10000 + i * 100;
-        //gateway.has_rf_chain = 1;
-        gateway.rf_chain = 5;
-        //gateway.has_frequency = 1;
-        gateway.frequency = 867100000;
-        up.gateway_metadata = &gateway;
-
-        // Send uplink message
-        err = ttngwc_send_uplink(ttn, &up);
-        if (err)
-            printf("up: send failed: %d\n", err);
-        else
-            printf("up: sent with timestamp %d\n", i);
-
-        //sleep(rand() % 20);
-        delay(rand() % 20);
-    }
-
-    printf("disconnecting\n");
-    ttngwc_disconnect(ttn);
-    ttngwc_cleanup(ttn);
-
-
 
 }
 
@@ -432,8 +417,34 @@ void init(void){
     print_configuration();
     //init_socket();
 
+    signal(SIGINT, stop);
+    signal(SIGTERM, stop);
+
+    // Initialize the TTN gateway
+    ttngwc_init(&ttn, gateway_id, &print_downlink, NULL);
+    if(!ttn){
+        printf("failed to initialize TTN gateway\n");
+        return;
+    }
+
+    // Connect to the broker
+    printf("connecting...\n");
+    int err = ttngwc_connect(ttn, router_id, router_port, gateway_key);
+    if(err != 0){
+        printf("connect failed: %d\n", err);
+        ttngwc_cleanup(ttn);
+        return;
+    }
+    printf("connected\n");
+
     printf("Listening at SF%i on %.6lf Mhz.\n", sf, mhz);
     printf("-----------------------------------\n");
+}
+
+void cleanup(void){
+    ttngwc_disconnect(ttn);
+    ttngwc_cleanup(ttn);
+    printf("disconnecting\n");
 }
 
 int main(){
@@ -441,16 +452,17 @@ int main(){
     send_stat();
 
     uint32_t lasttime = seconds();
-    while(1){
+    while(running){
         receive_packet();
 
-        int nowseconds = seconds();
-        if(nowseconds - lasttime >= update_interval){
-            lasttime = nowseconds;
-            send_stat();
-            cp_nb_rx_rcv  = 0;
-            cp_nb_rx_ok   = 0;
-            cp_up_pkt_fwd = 0;
-        }
+        //int nowseconds = seconds();
+        //if(nowseconds - lasttime >= update_interval){
+        //    lasttime = nowseconds;
+        //    send_stat();
+        //    rx_rcv  = 0;
+        //    rx_ok   = 0;
+        //    cp_up_pkt_fwd = 0;
+        //}
     }
+    cleanup();
 }
