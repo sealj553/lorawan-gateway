@@ -20,8 +20,8 @@ TTN's [forked version](https://github.com/TheThingsNetwork/paho.mqtt.embedded-c.
 
 ## Building
 ```shell
-git clone --recurse-submodules -j8 --depth 1 https://github.com/sealj553/single_chan_pkt_fwd.git
-cd single_chan_pkt_fwd
+git clone --recurse-submodules -j8 --depth 1 https://github.com/sealj553/lorawan-gateway.git
+cd lorawan-gateway
 
 #build the paho library
 cd paho.mqtt.embedded-c
@@ -36,10 +36,10 @@ make protoc
 make
 
 #must be run as root to interface with hardware
-sudo ./single_chan_pkt_fwd
+sudo ./lorawan-gateway
 ```
 
-## Liscense
+## License
 base64.c and base64.h are licensed under the Revised BSD License
 connector.c/h, network.h, and session.h are licensed under the MIT License
 All other files licensed under the Eclipse Public License v1.0
