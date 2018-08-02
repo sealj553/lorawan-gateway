@@ -13,3 +13,4 @@
 [submodule "paho.mqtt.embedded-c"]
 	path = paho.mqtt.embedded-c
 	url = https://github.com/eclipse/paho.mqtt.embedded-c.git
+    ignore = dirty

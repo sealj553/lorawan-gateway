@@ -29,6 +29,7 @@ mkdir build.paho
 cd build.paho
 cmake ..
 make
+sudo make install #or directly link with .so files
 
 cd ../../
 

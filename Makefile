@@ -3,7 +3,7 @@
 CC       = gcc
 LDFLAGS  = -lprotobuf-c -lpaho-embed-mqtt3c
 CPPFLAGS = -std=gnu11
-INCLUDE  = -I/usr/include/protobuf-c -I/usr/include/protobuf-c-rpc -I. \
+INCLUDE  = -I/usr/include/protobuf-c -I. \
 		   -Igithub.com/gogo/protobuf/protobuf \
 		   -Ipaho.mqtt.embedded-c/MQTTClient-C/src/linux
 CFLAGS   = -Wall -Wextra -Wfatal-errors -Wno-unused-variable -Wno-unused-but-set-variable $(INCLUDE)

@@ -9,14 +9,13 @@
 #include "time_util.h"
 #include "net.h"
 
-#include "MQTTClient.h"
+#include "LinuxMQTTClient.h"
 
 #include "github.com/TheThingsNetwork/api/gateway/gateway.pb-c.h"
 #include "github.com/TheThingsNetwork/api/router/router.pb-c.h"
 //#include "github.com/TheThingsNetwork/gateway-connector-bridge/types/types.pb-c.h"
 
 #include <protobuf-c.h>
-#include <protobuf-c-rpc.h>
 
 #include <sys/time.h>
 
