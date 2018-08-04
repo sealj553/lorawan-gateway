@@ -4,7 +4,6 @@
 #include "spi.h"
 #include "gpio.h"
 #include "time_util.h"
-
 #include "connector.h"
 
 #include <protobuf-c.h>
@@ -29,12 +28,12 @@ TTN *ttn;
 
 void print_configuration();
 void die(const char *s);
-bool read_data(char *payload, uint8_t *p_length);
+bool read_data(uint8_t *payload, uint8_t *p_length);
 void setup_lora();
 void send_status();
-bool receive_packet(void);
+void receive_packet(void);
 void init(void);
-void send_ack(const char *message);
+void send_ack(const uint8_t *message);
 void print_downlink(Router__DownlinkMessage *msg, void *arg);
 void cleanup(void);
 
@@ -47,11 +46,10 @@ int running = 1;
 
 void stop(int sig){
     signal(SIGINT, NULL);
-    puts("Shutting down...\n");
     running = 0;
 }
 
-bool read_data(char *payload, uint8_t *p_length){
+bool read_data(uint8_t *payload, uint8_t *p_length){
     //clear rxDone
     spi_write_reg(REG_IRQ_FLAGS, PAYLOAD_LENGTH);
 
@@ -235,7 +233,7 @@ void send_status(){
     }
 }
 
-void send_ack(const char *message){
+void send_ack(const uint8_t *message){
     char pkt[ACK_HEADER_SIZE];
     pkt[0] = PROTOCOL_VERSION;
     pkt[1] = message[1];
@@ -245,16 +243,16 @@ void send_ack(const char *message){
     write_data(pkt, ACK_HEADER_SIZE);
 }
 
-bool receive_packet(void){
+void receive_packet(void){
     //wait_irq();
     if(!gpio_read(irqPin)){
-        return false;
+        return;
     }
 
-    char message[256];
+    uint8_t message[MAX_MESSAGE_SIZE];
     uint8_t length;
     if(!read_data(message, &length)){
-        return false;
+        return;
     }
     //if confirmed
     send_ack(message);
@@ -288,34 +286,35 @@ bool receive_packet(void){
 
     //encode payload
     char b64[BASE64_MAX_LENGTH];
-    bin_to_b64((uint8_t*)message, length, b64, BASE64_MAX_LENGTH);
+    bin_to_b64(message, length, b64, BASE64_MAX_LENGTH);
 
     //char datr[] = "SFxxBWxxx";
     //snprintf(datr, strlen(datr) + 1, "SF%hhuBW%hu", sf, bw);
 
     // Enter the payload
     //unsigned char buf[] = {0x1, 0x2, 0x3, 0x4, 0x5};
-    uint8_t buf[] = "hello world";
-    Router__UplinkMessage up = ROUTER__UPLINK_MESSAGE__INIT;
-    up.payload.len           = sizeof(buf);
-    up.payload.data          = buf;
+    //uint8_t buf[] = "hello world";
+    Router__UplinkMessage up        = ROUTER__UPLINK_MESSAGE__INIT;
+    up.payload.len                  = length;
+    up.payload.data                 = message;
 
     // Set protocol metadata
-    Protocol__RxMetadata protocol = PROTOCOL__RX_METADATA__INIT;
-    protocol.protocol_case        = PROTOCOL__RX_METADATA__PROTOCOL_LORAWAN;
-    Lorawan__Metadata lorawan     = LORAWAN__METADATA__INIT;
-    lorawan.modulation            = LORAWAN__MODULATION__LORA;
-    lorawan.data_rate             = data_rate;
-    lorawan.coding_rate           = coding_rate;
-    lorawan.f_cnt                 = 0; //frame count
+    Protocol__RxMetadata protocol   = PROTOCOL__RX_METADATA__INIT;
+    protocol.protocol_case          = PROTOCOL__RX_METADATA__PROTOCOL_LORAWAN;
+    Lorawan__Metadata lorawan       = LORAWAN__METADATA__INIT;
+    lorawan.modulation              = LORAWAN__MODULATION__LORA;
+    lorawan.data_rate               = data_rate;
+    lorawan.coding_rate             = coding_rate;
+    lorawan.f_cnt                   = 0; //frame count
     protocol.lorawan     = &lorawan;
     up.protocol_metadata = &protocol;
 
     // Set gateway metadata
-    Gateway__RxMetadata gateway = GATEWAY__RX_METADATA__INIT;
-    gateway.timestamp           = 555;
-    gateway.rf_chain            = rf_chain;
-    gateway.frequency           = freq;
+    Gateway__RxMetadata gateway     = GATEWAY__RX_METADATA__INIT;
+    gateway.timestamp               = 555;
+    //RF chain where the gateway received the message
+    gateway.rf_chain                = 0;
+    gateway.frequency               = freq;
     up.gateway_metadata = &gateway;
 
     // Send uplink message
@@ -325,8 +324,6 @@ bool receive_packet(void){
     } else {
         printf("up: sent with timestamp %d\n", 555);
     }
-
-    return true;
 }
 
 void print_configuration(){
@@ -347,7 +344,6 @@ void init(void){
     //setup LoRa
     setup_lora();
     print_configuration();
-    //init_socket();
 
     signal(SIGINT, stop);
     signal(SIGTERM, stop);
@@ -361,7 +357,8 @@ void init(void){
 
     // Connect to the broker
     printf("connecting...\n");
-    int err = ttngwc_connect(ttn, router_id, router_port, gateway_key);
+    //int err = ttngwc_connect(ttn, router_id, router_port, gateway_key);
+    int err = ttngwc_connect(ttn, server_hostname, server_port, gateway_key);
     if(err != 0){
         printf("connect failed: %d\n", err);
         ttngwc_cleanup(ttn);
@@ -376,7 +373,7 @@ void init(void){
 void cleanup(void){
     ttngwc_disconnect(ttn);
     ttngwc_cleanup(ttn);
-    printf("disconnecting\n");
+    puts("\ndisconnecting...");
 }
 
 int main(){

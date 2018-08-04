@@ -78,6 +78,7 @@
 #define BASE64_MAX_LENGTH           341
 #define HEADER_SIZE                 12
 #define ACK_HEADER_SIZE             4
+#define MAX_MESSAGE_SIZE            256
 
 // IRQ masks
 #define IRQ_TX_DONE_MASK           0x08

@@ -29,7 +29,7 @@ cd lorawan-gateway
 cd paho.mqtt.embedded-c
 make
 sudo make install #or directly link with .so files
-cd ../../
+cd ../
 
 #compile the proto files
 make protoc
