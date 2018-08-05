@@ -357,12 +357,11 @@ void init(void){
 
     // Connect to the broker
     printf("connecting...\n");
-    //int err = ttngwc_connect(ttn, router_id, router_port, gateway_key);
     int err = ttngwc_connect(ttn, server_hostname, server_port, gateway_key);
     if(err != 0){
         printf("connect failed: %d\n", err);
         ttngwc_cleanup(ttn);
-        return;
+        exit(0);
     }
     printf("connected\n");
 
@@ -371,8 +370,8 @@ void init(void){
 }
 
 void cleanup(void){
-    ttngwc_disconnect(ttn);
     ttngwc_cleanup(ttn);
+    ttngwc_disconnect(ttn);
     puts("\ndisconnecting...");
 }
 

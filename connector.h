@@ -25,8 +25,7 @@ void ttngwc_cleanup(TTN *session);
 
 // Connects to The Things Network router.
 // Returns 0 on success, -1 on failure
-int ttngwc_connect(TTN *session, const char *host_name, int port,
-                   const char *key);
+int ttngwc_connect(TTN *session, const char *host_name, int port, const char *key);
 
 // Disconnects from The Things Network Router
 // Returns always 0

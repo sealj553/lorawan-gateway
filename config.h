@@ -22,7 +22,7 @@ static const int sf                 = 7;         //spreading factor (SF7-SF12)
 
 //servers
 //mqtt
-static const char *server_hostname  = "us.thethings.network";
+static const char *server_hostname  = "router.us.thethings.network";
 static const int  server_port       = 1883; //8883 for TLS
 static const char *router_id        = "ttn-router-us-west";
 //static const char *account_server   = "https://account.thethingsnetwork.org";
@@ -37,7 +37,7 @@ static const char *gateway_key      = "ttn-account-v2.8Gb1eTqVLvtWCrop5JHWYsPmZ1
 
 //The gateway's frequency plan: one of EU_863_870, US_902_928, CN_779_787, EU_433, AU_915_928, CN_470_510, AS_923, AS_920_923, AS_923_925, KR_920_923
 static char *frequency_plan         = "US_902_928";
-static char *data_rate              = "SF9BW125";
+static char *data_rate              = "SF9BW125"; //generate this in future
 static char *coding_rate            = "4/5";
 
 //update interval (seconds)
@@ -51,3 +51,10 @@ static const unsigned int update_interval = 30;
 //};
 
 #endif
+
+/*Host: <Region>.thethings.network, where <Region> is last part of the handler you registered your application to, e.g. eu.
+Port: 1883 or 8883 for TLS
+PEM encoded CA certificate for TLS: mqtt-ca.pem
+Note: When this certificate expires, we will migrate to Let’s Encrypt certificates. Therefore you might want to include the Let’s Encrypt Roots in your certificate chain.
+Username: Application ID
+Password: Application Access Key */
