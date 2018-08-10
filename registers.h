@@ -11,7 +11,7 @@
 #define REG_IRQ_FLAGS               0x12
 #define REG_DIO_MAPPING_1           0x40
 #define REG_DIO_MAPPING_2           0x41
-#define REG_MODEM_CONFIG            0x1D
+#define REG_MODEM_CONFIG1           0x1D
 #define REG_MODEM_CONFIG2           0x1E
 #define REG_MODEM_CONFIG3           0x26
 #define REG_SYMB_TIMEOUT_LSB        0x1F
@@ -53,8 +53,6 @@
 // CONF REG
 #define REG1                        0x0A
 #define REG2                        0x84
-
-#define SX72_MC1_LOW_DATA_RATE_OPTIMIZE  0x01 // mandated for SF11 and SF12
 
 // FRF
 #define REG_FRF_MSB                 0x06

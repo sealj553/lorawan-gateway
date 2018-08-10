@@ -5,6 +5,7 @@
 #include "gpio.h"
 #include "time_util.h"
 #include "connector.h"
+#include "sx1276.h"
 
 #include <protobuf-c.h>
 
@@ -18,7 +19,7 @@
 #include <ctype.h>
 #include <time.h>
 
-uint32_t rx_rcv  = 0;
+//uint32_t rx_rcv  = 0;
 uint32_t rx_ok   = 0;
 
 /*uint32_t rx_rcv;
@@ -51,15 +52,16 @@ uint32_t beacon_rejected = 0;*/
 int irqPin, rstPin, intPin;
 const double mhz = (double)freq/1000000;
 TTN *ttn;
+int running = 1;
 
 //void die(const char *s);
-bool read_data(uint8_t *payload, uint8_t *p_length);
 void setup_lora();
 void send_status();
 void receive_packet(void);
 void init(void);
 void send_ack(const uint8_t *message);
 void print_downlink(Router__DownlinkMessage *msg, void *arg);
+void reset_radio(void);
 void cleanup(void);
 
 /*void die(const char *s){
@@ -67,108 +69,39 @@ void cleanup(void);
   exit(1);
   }*/
 
-int running = 1;
-
 void stop(int sig){
     signal(SIGINT, NULL);
     running = 0;
 }
 
-bool read_data(uint8_t *payload, uint8_t *p_length){
-    //clear rxDone
-    spi_write_reg(REG_IRQ_FLAGS, PAYLOAD_LENGTH);
-
-    int irqflags = spi_read_reg(REG_IRQ_FLAGS);
-    ++rx_rcv;
-
-    if((irqflags & PAYLOAD_CRC) == PAYLOAD_CRC) {
-        puts("CRC error");
-        spi_write_reg(REG_IRQ_FLAGS, PAYLOAD_CRC);
-        return false;
-    }
-
-    ++rx_ok;
-
-    uint8_t receivedCount = spi_read_reg(REG_RX_NB_BYTES);
-    *p_length = receivedCount;
-
-    spi_write_reg(REG_FIFO_ADDR_PTR, spi_read_reg(REG_FIFO_RX_CURRENT_ADDR));
-
-    for(int i = 0; i < receivedCount; ++i){
-        payload[i] = spi_read_reg(REG_FIFO);
-    }
-
-    return true;
-}
-
-size_t write_data(const char *buffer, int size){
-    //idle/standby mode
-    spi_write_reg(REG_OPMODE, MODE_LONG_RANGE_MODE | MODE_STDBY);
-
-    // reset FIFO address and paload length
-    spi_write_reg(REG_FIFO_ADDR_PTR, 0);
-    spi_write_reg(REG_PAYLOAD_LENGTH, 0);
-
-    int currentLength = spi_read_reg(REG_PAYLOAD_LENGTH);
-
-    //check size
-    if((currentLength + size) > MAX_PKT_LENGTH){
-        size = MAX_PKT_LENGTH - currentLength;
-    }
-
-    //write data
-    for(int i = 0; i < size; ++i){
-        spi_write_reg(REG_FIFO, buffer[i]);
-    }
-
-    //update length
-    spi_write_reg(REG_PAYLOAD_LENGTH, currentLength + size);
-
-    //put in TX mode
-    spi_write_reg(REG_OPMODE, MODE_LONG_RANGE_MODE | MODE_TX);
-
-    //wait for TX done
-    while((spi_read_reg(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK) == 0);
-
-    // clear IRQ's
-    spi_write_reg(REG_IRQ_FLAGS, IRQ_TX_DONE_MASK);
-
-    return size;
-}
-
-void setup_lora(){
+void reset_radio(){
     gpio_write(rstPin, 0);
     delay(100);
     gpio_write(rstPin, 1);
     delay(100);
+}
 
-    uint8_t version = spi_read_reg(REG_VERSION);
+void setup_lora(){
+    reset_radio();
 
+    uint8_t version = get_version();
     printf("Transceiver version 0x%02X, ", version);
     if(version != SX1276_ID){ 
         puts("Unrecognized transceiver");
         exit(1);
-    } else {
-        puts("SX1276 detected\n");
     }
+    puts("SX1276 detected\n");
 
-    spi_write_reg(REG_OPMODE, MODE_SLEEP);
-
-    // set frequency
-    uint64_t frf = ((uint64_t)freq << 19) / 32000000;
-    spi_write_reg(REG_FRF_MSB, frf >> 16);
-    spi_write_reg(REG_FRF_MID, frf >> 8);
-    spi_write_reg(REG_FRF_LSB, frf >> 0);
-
-    //LoRaWAN public sync word
-    spi_write_reg(REG_SYNC_WORD, 0x34);
+    sleep();
+    set_frequency(freq);
+    set_sync_word(0x34); //LoRaWAN public sync word
 
     if(sf == 11 || sf == 12){
         spi_write_reg(REG_MODEM_CONFIG3, 0x0C);
     } else {
         spi_write_reg(REG_MODEM_CONFIG3, 0x04);
     }
-    spi_write_reg(REG_MODEM_CONFIG, 0x72);
+    spi_write_reg(REG_MODEM_CONFIG1, 0x72);
     spi_write_reg(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
 
     if(sf == 10 || sf == 11 || sf == 12){
@@ -279,6 +212,7 @@ void receive_packet(void){
     if(!read_data(message, &length)){
         return;
     }
+    ++rx_ok;
     //if confirmed
     send_ack(message);
     puts("ack sent\n");
