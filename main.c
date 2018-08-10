@@ -20,14 +20,39 @@
 
 uint32_t rx_rcv  = 0;
 uint32_t rx_ok   = 0;
-uint32_t cp_up_pkt_fwd = 0;
+
+/*uint32_t rx_rcv;
+uint32_t rx_ok;
+uint32_t rx_bad;
+uint32_t rx_nocrc;
+uint32_t pkt_fwd;
+uint32_t network_byte;
+uint32_t payload_byte;
+uint32_t dgram_sent;
+uint32_t ack_rcv;
+uint32_t pull_sent;
+uint32_t ack_rcv;
+uint32_t dgram_rcv;
+uint32_t network_byte;
+uint32_t payload_byte;
+uint32_t tx_ok;
+uint32_t tx_fail;
+uint32_t tx_requested = 0;
+uint32_t tx_rejected_collision_packet = 0;
+uint32_t tx_rejected_collision_beacon = 0;
+uint32_t tx_rejected_too_late = 0;
+uint32_t tx_rejected_too_early = 0;
+uint32_t beacon_queued = 0;
+uint32_t beacon_sent = 0;
+uint32_t beacon_rejected = 0;*/
+
+//uint32_t cp_up_pkt_fwd = 0;
 
 int irqPin, rstPin, intPin;
 const double mhz = (double)freq/1000000;
 TTN *ttn;
 
-void print_configuration();
-void die(const char *s);
+//void die(const char *s);
 bool read_data(uint8_t *payload, uint8_t *p_length);
 void setup_lora();
 void send_status();
@@ -37,10 +62,10 @@ void send_ack(const uint8_t *message);
 void print_downlink(Router__DownlinkMessage *msg, void *arg);
 void cleanup(void);
 
-void die(const char *s){
-    perror(s);
-    exit(1);
-}
+/*void die(const char *s){
+  perror(s);
+  exit(1);
+  }*/
 
 int running = 1;
 
@@ -326,14 +351,6 @@ void receive_packet(void){
     }
 }
 
-void print_configuration(){
-    //printf("server: %s\n", server);
-    printf("Gateway Configuration:\n");
-    printf("  platform=%s, email=%s, desc=%s\n", platform, email, description);
-    printf("  lat=%.8f, lon=%.8f, alt=%d\n", lat, lon, alt);
-    printf("  freq=%d, sf=%d\n", freq, sf);
-}
-
 void init(void){
     //set up hardware
     ////setup_interrupt("rising"); //gpio4, input
@@ -343,7 +360,6 @@ void init(void){
 
     //setup LoRa
     setup_lora();
-    print_configuration();
 
     signal(SIGINT, stop);
     signal(SIGTERM, stop);
