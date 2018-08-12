@@ -59,10 +59,12 @@ void setup_lora();
 void send_status();
 void receive_packet(void);
 void init(void);
-void send_ack(const uint8_t *message);
+void send_ack(const uint8_t *received_message);
 void print_downlink(Router__DownlinkMessage *msg, void *arg);
 void reset_radio(void);
 void cleanup(void);
+long get_snr(void);
+int get_rssi(void);
 
 /*void die(const char *s){
   perror(s);
@@ -75,10 +77,12 @@ void stop(int sig){
 }
 
 void reset_radio(){
-    gpio_write(rstPin, 0);
-    delay(100);
     gpio_write(rstPin, 1);
-    delay(100);
+    delay(200);
+    gpio_write(rstPin, 0);
+    delay(200);
+    gpio_write(rstPin, 1);
+    delay(50);
 }
 
 void setup_lora(){
@@ -99,6 +103,7 @@ void setup_lora(){
     if(sf == 11 || sf == 12){
         spi_write_reg(REG_MODEM_CONFIG3, 0x0C);
     } else {
+        //set auot AGC
         spi_write_reg(REG_MODEM_CONFIG3, 0x04);
     }
     spi_write_reg(REG_MODEM_CONFIG1, 0x72);
@@ -150,14 +155,6 @@ void send_status(){
         printf(" %u packet%sreceived\n", rx_ok, rx_ok > 1 ? "s " : " ");
     }
 
-    //int json_strlen = strlen(json_str);
-    //build and send message
-    //memcpy(status_pkt + HEADER_SIZE, json_str, json_strlen);
-    //send_udp(servers[i], status_pkt, HEADER_SIZE + json_strlen);
-    //free json memory
-    //json_decref(root);
-
-
     // Send gateway status
     Gateway__Status status  = GATEWAY__STATUS__INIT;
     status.time             = 555;
@@ -191,14 +188,34 @@ void send_status(){
     }
 }
 
-void send_ack(const uint8_t *message){
+void send_ack(const uint8_t *received_message){
     char pkt[ACK_HEADER_SIZE];
     pkt[0] = PROTOCOL_VERSION;
-    pkt[1] = message[1];
-    pkt[2] = message[2];
+    pkt[1] = received_message[1];
+    pkt[2] = received_message[2];
     pkt[3] = PKT_PUSH_ACK;
 
     write_data(pkt, ACK_HEADER_SIZE);
+}
+
+long get_snr(void){
+    long SNR;
+    uint8_t value = spi_read_reg(REG_PKT_SNR_VALUE);
+    //the SNR sign bit is 1
+    if(value & 0x80){
+        //invert and divide by 4
+        value = ((~value + 1) & 0xFF) >> 2;
+        SNR = -value;
+    } else {
+        // Divide by 4
+        SNR = (value & 0xFF) >> 2;
+    }
+    return SNR;
+}
+
+int get_rssi(void){
+    const int rssicorr = 157;
+    return spi_read_reg(REG_PKT_RSSI) - rssicorr;
 }
 
 void receive_packet(void){
@@ -217,23 +234,11 @@ void receive_packet(void){
     send_ack(message);
     puts("ack sent\n");
 
-    long int SNR;
-    uint8_t value = spi_read_reg(REG_PKT_SNR_VALUE);
-    //the SNR sign bit is 1
-    if(value & 0x80){
-        //invert and divide by 4
-        value = ((~value + 1) & 0xFF) >> 2;
-        SNR = -value;
-    } else {
-        // Divide by 4
-        SNR = (value & 0xFF) >> 2;
-    }
-
-    const int rssicorr = 157;
-    int rssi = spi_read_reg(REG_PKT_RSSI) - rssicorr;
+    long SNR = get_snr();
+    int rssi = get_rssi();
 
     printf("Packet RSSI: %d, ", rssi);
-    printf("RSSI: %d, ", spi_read_reg(REG_RSSI) - rssicorr);
+    printf("RSSI: %d, ", rssi);
     printf("SNR: %li, ", SNR);
     printf("Length: %hhu Message:'", length);
     for(int i = 0; i < length; ++i){
@@ -244,8 +249,8 @@ void receive_packet(void){
     //uint32_t start_time = get_time();
 
     //encode payload
-    char b64[BASE64_MAX_LENGTH];
-    bin_to_b64(message, length, b64, BASE64_MAX_LENGTH);
+    //char b64[BASE64_MAX_LENGTH];
+    //bin_to_b64(message, length, b64, BASE64_MAX_LENGTH);
 
     //char datr[] = "SFxxBWxxx";
     //snprintf(datr, strlen(datr) + 1, "SF%hhuBW%hu", sf, bw);

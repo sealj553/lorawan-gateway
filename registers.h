@@ -27,12 +27,6 @@
 
 #define SX1276_ID                   0x12
 
-//where do these values even come from? not the datasheet...
-//#define SX72_MODE_RX_CONTINUOS      0x85
-//#define SX72_MODE_TX                0x83
-//#define SX72_MODE_SLEEP             0x80
-//#define SX72_MODE_STANDBY           0x81
-
 // modes
 #define MODE_LONG_RANGE_MODE        0x80
 #define MODE_SLEEP                  0x00

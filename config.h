@@ -16,6 +16,7 @@ static char *description            = "Single Channel Gateway"; //free form desc
 
 //radio config
 static const uint16_t bw            = 125;       //bandwidth (kHz)
+//static const uint32_t freq          = 916800000; //center frequency (Hz) for US915 (I think)
 static const uint32_t freq          = 916800000; //center frequency (Hz) for US915 (I think)
 static const int sf                 = 7;         //spreading factor (SF7-SF12)
 
