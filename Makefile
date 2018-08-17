@@ -2,7 +2,7 @@
 
 CC       = gcc
 LDFLAGS  = -lprotobuf-c -lpaho-embed-mqtt3c -lpthread
-CPPFLAGS = -std=gnu11
+CPPFLAGS = -std=gnu11 -g
 INCLUDE  = -I/usr/include/protobuf-c -I. \
 		   -Igithub.com/gogo/protobuf/protobuf \
 		   -Ipaho.mqtt.embedded-c/MQTTClient-C/src \

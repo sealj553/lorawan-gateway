@@ -1,3 +1,5 @@
+//TODO: thread for checking irc pin, callback queue
+
 #include "registers.h"
 #include "config.h"
 #include "base64.h"
@@ -73,6 +75,7 @@ int get_rssi(void);
 
 void stop(int sig){
     signal(SIGINT, NULL);
+    puts("shutting down...");
     running = 0;
 }
 
@@ -85,6 +88,20 @@ void reset_radio(){
     delay(50);
 }
 
+/*void printBits(size_t const size, void const * const ptr){
+    unsigned char *b = (unsigned char*)ptr;
+    unsigned char byte;
+    int i, j;
+
+    for(i=size-1;i>=0;i--){
+        for(j=7;j>=0;j--){
+            byte = (b[i] >> j) & 1;
+            printf("%u", byte);
+        }
+    }
+    puts("");
+}*/
+
 void setup_lora(){
     reset_radio();
 
@@ -96,28 +113,29 @@ void setup_lora(){
     }
     puts("SX1276 detected\n");
 
+    printf("modem1:0x%08X\n", MODEM_CONFIG1_VAL);
+
     sleep();
     set_frequency(freq);
     set_sync_word(0x34); //LoRaWAN public sync word
 
-    if(sf == 11 || sf == 12){
-        spi_write_reg(REG_MODEM_CONFIG3, 0x0C);
-    } else {
-        //set auot AGC
-        spi_write_reg(REG_MODEM_CONFIG3, 0x04);
-    }
-    spi_write_reg(REG_MODEM_CONFIG1, 0x72);
-    spi_write_reg(REG_MODEM_CONFIG2, (sf << 4) | 0x04);
+    spi_write_reg(REG_MODEM_CONFIG1, MODEM_CONFIG1_VAL);
+    spi_write_reg(REG_MODEM_CONFIG2, MODEM_CONFIG2_VAL);
+    spi_write_reg(REG_MODEM_CONFIG3, MODEM_CONFIG3_VAL);
 
-    if(sf == 10 || sf == 11 || sf == 12){
-        spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x05);
-    } else {
-        spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x08);
-    }
-    spi_write_reg(REG_MAX_PAYLOAD_LENGTH, 0x80);
-    spi_write_reg(REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
-    spi_write_reg(REG_HOP_PERIOD, 0xFF);
-    spi_write_reg(REG_FIFO_ADDR_PTR, spi_read_reg(REG_FIFO_RX_BASE_AD));
+    //if(sf == 10 || sf == 11 || sf == 12){
+    //    spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x05);
+    //} else {
+    //    spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x08);
+    //}
+    //spi_write_reg(REG_MAX_PAYLOAD_LENGTH, 0x80);
+    //spi_write_reg(REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
+    //spi_write_reg(REG_HOP_PERIOD, 0xFF);
+    //spi_write_reg(REG_FIFO_ADDR_PTR, spi_read_reg(REG_FIFO_RX_BASE_AD));
+
+    //set base addresses
+    spi_write_reg(REG_FIFO_TX_BASE_ADDR, 0);
+    spi_write_reg(REG_FIFO_RX_BASE_ADDR, 0);
 
     //set Continous Receive Mode
     spi_write_reg(REG_LNA, LNA_MAX_GAIN);
@@ -129,10 +147,10 @@ void print_downlink(Router__DownlinkMessage *msg, void *arg){
     printf("down: have %zu bytes downlink\n", msg->payload.len);
     if(msg->protocol_configuration->protocol_case == PROTOCOL__TX_CONFIGURATION__PROTOCOL_LORAWAN){
         Lorawan__TxConfiguration *lora = msg->protocol_configuration->lorawan;
-        printf("down: modulation: %d, data rate: %s, bit rate: %d, coding rate: "
-                "%s, fcnt: %d\n",
-                lora->modulation, lora->data_rate, lora->bit_rate,
-                lora->coding_rate, lora->f_cnt);
+        //printf("down: modulation: %d, data rate: %s, bit rate: %d, coding rate: "
+                //"%s, fcnt: %d\n",
+                //lora->modulation, lora->data_rate, lora->bit_rate,
+                //lora->coding_rate, lora->f_cnt);
         Gateway__TxConfiguration *gtw = msg->gateway_configuration;
         printf("down: timestamp: %d, rf chain: %d, frequency: %lu, power: %d, "
                 "polarization inversion: %d, frequency deviation: %d\n",
@@ -268,7 +286,7 @@ void receive_packet(void){
     Lorawan__Metadata lorawan       = LORAWAN__METADATA__INIT;
     lorawan.modulation              = LORAWAN__MODULATION__LORA;
     lorawan.data_rate               = data_rate;
-    lorawan.coding_rate             = coding_rate;
+    lorawan.coding_rate             = "4/5";
     lorawan.f_cnt                   = 0; //frame count
     protocol.lorawan     = &lorawan;
     up.protocol_metadata = &protocol;
@@ -277,7 +295,7 @@ void receive_packet(void){
     Gateway__RxMetadata gateway     = GATEWAY__RX_METADATA__INIT;
     gateway.timestamp               = 555;
     //RF chain where the gateway received the message
-    gateway.rf_chain                = 0;
+    //gateway.rf_chain                = 0;
     gateway.frequency               = freq;
     up.gateway_metadata = &gateway;
 
@@ -320,7 +338,7 @@ void init(void){
     }
     printf("connected\n");
 
-    printf("Listening at SF%i on %.6lf Mhz.\n", sf, mhz);
+    printf("Listening at SF%i on %.6lf Mhz.\n", SF_VAL, mhz);
     printf("-----------------------------------\n");
 }
 
