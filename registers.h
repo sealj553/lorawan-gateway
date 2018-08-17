@@ -26,6 +26,7 @@
 #define REG_PKT_RSSI                0x1A
 
 #define SX1276_ID                   0x12
+#define LORAWAN_PUBLIC_SYNC_WORD    0x34
 
 // modes
 #define MODE_LONG_RANGE_MODE        0x80
@@ -35,7 +36,7 @@
 #define MODE_RX_CONTINUOUS          0x05
 #define MODE_RX_SINGLE              0x06
 
-#define PAYLOAD_LENGTH              0x40
+#define PAYLOAD_LENGTH              64
 #define PAYLOAD_CRC                 0x20
 
 // LOW NOISE AMPLIFIER

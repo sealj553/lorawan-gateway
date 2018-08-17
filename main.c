@@ -117,21 +117,26 @@ void setup_lora(){
 
     sleep();
     set_frequency(freq);
-    set_sync_word(0x34); //LoRaWAN public sync word
+    set_sync_word(LORAWAN_PUBLIC_SYNC_WORD);
 
     spi_write_reg(REG_MODEM_CONFIG1, MODEM_CONFIG1_VAL);
     spi_write_reg(REG_MODEM_CONFIG2, MODEM_CONFIG2_VAL);
     spi_write_reg(REG_MODEM_CONFIG3, MODEM_CONFIG3_VAL);
 
-    //if(sf == 10 || sf == 11 || sf == 12){
-    //    spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x05);
-    //} else {
-    //    spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x08);
-    //}
-    //spi_write_reg(REG_MAX_PAYLOAD_LENGTH, 0x80);
-    //spi_write_reg(REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
-    //spi_write_reg(REG_HOP_PERIOD, 0xFF);
-    //spi_write_reg(REG_FIFO_ADDR_PTR, spi_read_reg(REG_FIFO_RX_BASE_AD));
+    switch(SF_VAL){
+        case 10:
+        case 11:
+        case 12:
+            spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x05);
+            break;
+        default:
+            spi_write_reg(REG_SYMB_TIMEOUT_LSB, 0x08);
+    }
+
+    spi_write_reg(REG_MAX_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
+    spi_write_reg(REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
+    spi_write_reg(REG_HOP_PERIOD, 0xFF);
+    spi_write_reg(REG_FIFO_ADDR_PTR, spi_read_reg(REG_FIFO_RX_BASE_ADDR));
 
     //set base addresses
     spi_write_reg(REG_FIFO_TX_BASE_ADDR, 0);
