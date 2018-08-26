@@ -29,12 +29,14 @@ static const int bw                 = BW_125KHZ;       //bandwidth (kHz)
 //static const uint32_t freq          = 916800000; //center frequency (Hz) for US915 (I think)
 //static const uint32_t freq          = 916800000; //center frequency (Hz) for US915 (I think)
 static const uint32_t freq          = 903700000;
+//static const uint32_t freq          = 908080000;
 
 //servers
 //mqtt
 static const char *server_hostname  = "router.us.thethings.network";
 static const int  server_port       = 1883; //8883 for TLS
-static const char *router_id        = "ttn-router-us-west";
+//static const char *router_id        = "ttn-router-us-west";
+static const char *router_id        = "ttn-router-eu";
 //static const char *account_server   = "https://account.thethingsnetwork.org";
 //static const char *discovery_server = "discovery.thethings.network:1900";
 

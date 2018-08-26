@@ -47,7 +47,7 @@ uint8_t spi_read_reg(uint8_t reg){
 
     if(ioctl(fd, SPI_IOC_MESSAGE(1), &spi_trans) == -1){
         perror("spi transfer");
-        return -1;
+        exit(1);
     }
 
     return miso[1];
@@ -64,7 +64,7 @@ int spi_write_reg(uint8_t reg, uint8_t value){
 
     if(ioctl(fd, SPI_IOC_MESSAGE(1), &spi_trans) == -1){
         perror("spi transfer");
-        return -1;
+        exit(1);
     }
     return 2;
 }

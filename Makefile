@@ -7,7 +7,7 @@ INCLUDE  = -I/usr/include/protobuf-c -I. \
 		   -Igithub.com/gogo/protobuf/protobuf \
 		   -Ipaho.mqtt.embedded-c/MQTTClient-C/src \
 		   -Ipaho.mqtt.embedded-c/MQTTPacket/src
-CFLAGS   = -Wall -Wextra -Wfatal-errors -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-parameter $(INCLUDE)
+CFLAGS   = -Wall -Wextra -Wfatal-errors -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-parameter -Wno-missing-braces $(INCLUDE)
 TARGET   = lorawan-gateway
 SRCFILES = base64.c main.c spi.c gpio.c time_util.c connector.c sx1276.c \
 		   paho.mqtt.embedded-c/MQTTClient-C/src/linux/MQTTLinux.c \

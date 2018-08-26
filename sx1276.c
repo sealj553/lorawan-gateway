@@ -10,7 +10,7 @@ void set_frequency(uint32_t frequency){
     spi_write_reg(REG_FRF_LSB, frf >> 0);
 }
 
-void sleep(void){
+void sleep_mode(void){
     spi_write_reg(REG_OPMODE, MODE_SLEEP);
 }
 
